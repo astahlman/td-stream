@@ -40,6 +40,10 @@ all_bis = [bigrams(t) for t in tweets]
 all_bis = [x for x in all_bis if x]
 all_bis = [x for sublist in all_bis for x in sublist]
 sorted_bis = sorted(((c, b) for b,c in Counter(all_bis).iteritems()), reverse=True)
+top_words = sorted(((c,b) for b,c in Counter([x for tup in all_bis for x in tup]).iteritems()), reverse=True)
 
 scorer = find_player(sorted_bis[:NUM_BIGRAMS]) or "Someone"
-print scorer + " scored a touchdown! Hooray!"
+td_alert = scorer + " scored a touchdown for the " + top_words[0][1] + "! Hooray!"
+
+from os import system
+system("say " + td_alert)
