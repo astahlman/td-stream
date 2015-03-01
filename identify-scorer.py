@@ -62,7 +62,7 @@ def generate_alert(tweets):
 if __name__ == "__main__":
 
     start = time.time()
-    tweets = [line.strip() for line in open('data/pos-data.txt')]
+    tweets = [line.strip() for line in open('data/demarco-td.txt')]
     print "Read tweets in: %f seconds" % (time.time() - start)
     alert = generate_alert(tweets)
     print "Finished in: %f seconds" % (time.time() - start)
