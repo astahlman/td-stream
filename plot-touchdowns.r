@@ -20,8 +20,9 @@ df <- df[which(df$is_td),]
 
 BUCKET <- 5000 # 5 seconds
 
-df$t.bucket <- as.integer(df$time / BUCKET)
-ts <- ddply(df, "t.bucket", summarise, td.count = sum(is_td))
+df$t.bucket <- trunc(df$time / BUCKET) * BUCKET
+df$index <- c(1:dim(df)[1])
+ts <- ddply(df, "t.bucket", summarise, td.count = sum(is_td), index = min(index))
 png("td-timeseries.png")
-ggplot(ts, aes(t.bucket, td.count)) + geom_line() + xlab("Time") + ylab("Count") + ggtitle("Tweets containing the word 'touchdown'")
+ggplot(ts, aes(index, td.count)) + geom_line() + xlab("Time") + ylab("Count") + ggtitle("Tweets containing the word 'touchdown'") + scale_x_continuous(breaks=seq(1,max(df$index), 1000)) + theme(axis.text.x = element_text(angle=90, vjust=.5, size=6))
 dev.off()
