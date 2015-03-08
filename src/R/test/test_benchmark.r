@@ -106,3 +106,27 @@ test_that("We miss everything", {
     expect_that(nrow(metrics$false.neg), equals(8))
     expect_that(nrow(metrics$false.pos), equals(0))
 })
+
+test_that("We can toggle whether the player who scored matters", {
+
+    output <- data.frame(
+        rbind(    
+            c(1418607396778,"lebron james"),
+            c(1418608625870,"lebron james"),
+            c(1418609918817,"lebron james"),
+            c(1418610531857,"lebron james"),
+            c(1418614014826,"lebron james"),
+            c(1418614593480,"lebron james"),
+            c(1418615124627,"lebron james"),
+            c(1418615763277,"lebron james")),
+        stringsAsFactors=FALSE)
+    
+    colnames(output) <- c("timestamp", "player")
+    output$timestamp <- as.numeric(as.character(output$timestamp))
+
+    metrics <- benchmark(output, check.players=FALSE)
+
+    expect_that(nrow(metrics$true.pos), equals(8)) # every td is detected
+    expect_that(nrow(metrics$false.neg), equals(0)) # no td is missed
+    expect_that(nrow(metrics$false.pos), equals(0)) # no false alarms
+})

@@ -17,16 +17,17 @@ expected <- data.frame(
 colnames(expected) <- c("timestamp", "player")
 expected$timestamp <- as.numeric(as.character(expected$timestamp))
 
-benchmark <- function(actual, exp=expected) {
+benchmark <- function(actual, exp=expected, check.players=TRUE) {
 
+    checked.cols <- if (check.players) c("timestamp", "player") else c("timestamp")
+
+    actual <- data.frame(actual[,checked.cols])
+    exp <- data.frame(exp[,checked.cols])
+    colnames(actual) <- checked.cols
+    colnames(exp) <- checked.cols
     exp$matches = NA
-    ## TODO: There's probably a more idiomatic way to do this...
-    each.row <- lapply(seq_len(nrow(actual)),
-                       FUN=function(i) list(
-                           player=actual[i, "player"],
-                           timestamp=as.numeric(actual[i, "timestamp"])))
 
-
+    each.row <- split(actual, rownames(actual))
     time.diffs <- Reduce(function(actual, x) find.match(actual, x),
                    x=each.row,
                    init=exp)
@@ -34,14 +35,19 @@ benchmark <- function(actual, exp=expected) {
     names(time.diffs)[names(time.diffs) == "matches"] <- "latency"
     
     true.pos <- time.diffs[which(!is.na(time.diffs$latency)),]
-    false.neg <- time.diffs[which(is.na(time.diffs$latency)), c("player", "timestamp")]
+    false.neg <- time.diffs[which(is.na(time.diffs$latency)),]
 
     matched.true.pos <- true.pos
     matched.true.pos$timestamp <- matched.true.pos$timestamp + matched.true.pos$latency
-    matched.true.pos <- matched.true.pos[,c("timestamp", "player")]
+    matched.true.pos <- data.frame(matched.true.pos[,checked.cols])
+    names(matched.true.pos) <- checked.cols
+
     false.pos <- df.setdiff(actual, matched.true.pos)
+
     ## every duplicate alarm is a false positive
-    false.pos <- rbind(false.pos, actual[which(duplicated(actual)),]) 
+    duplicates <- data.frame(actual[which(duplicated(actual)),])
+    names(duplicates) <- checked.cols
+    false.pos <- rbind(false.pos, duplicates)
     
     result <- list("true.pos"=true.pos,
                    "false.neg"=false.neg,
@@ -51,14 +57,24 @@ benchmark <- function(actual, exp=expected) {
 find.match <- function(actuals, x) {
     
     x <- data.frame(x)
-
+    actuals <- data.frame(actuals)
     if (nrow(x) == 0) {
         return(actuals)
     }
 
-    latencies <- sapply(x$timestamp - actuals$timestamp, function (l) if (l >= 0 & l <= THRESHOLD) l else Inf)
+    latencies <- sapply(x$timestamp - actuals$timestamp,
+                        function (l) if (l >= 0 & l <= THRESHOLD) l else Inf)
 
-    if (is.finite(min(latencies)) & x$player == actuals[which.min(latencies), "player"]) {
+    other.cols <- Filter(function(col) !col %in% c("timestamp", "matches"), names(x))
+    other.cols.match <- function(x, y) {
+        if (length(other.cols) == 0) {
+            return(TRUE)
+        } else {
+            return(x[, other.cols] == y[which.min(latencies), other.cols])
+        }
+    }
+
+    if (is.finite(min(latencies)) & other.cols.match(x, actuals)) {
         latency <- x$timestamp - actuals[which.min(latencies), "timestamp"]
         index <- which.min(latencies)
         if (is.na(actuals$matches[index]) | latency < actuals$matches[index]) {
@@ -70,5 +86,5 @@ find.match <- function(actuals, x) {
 
 # like setdiff, but for data.frames
 df.setdiff <- function(x, y) {
-    x[!duplicated(rbind(y,x))[-seq_len(nrow(y))],]
+    diff <- x[!duplicated(rbind(y,x))[-seq_len(nrow(y))],]
 }
