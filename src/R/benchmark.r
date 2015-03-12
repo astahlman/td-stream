@@ -1,8 +1,4 @@
-library("rjson")
-library("plyr")
-library("ggplot2")
-
-THRESHOLD <-  30 * 1000
+## Ground truth from sample data - tweets.2014-12-15.01.json
 expected <- data.frame(
     rbind(
         c(1418607396778,"demarco murray"),
@@ -17,7 +13,7 @@ expected <- data.frame(
 colnames(expected) <- c("timestamp", "player")
 expected$timestamp <- as.numeric(as.character(expected$timestamp))
 
-benchmark <- function(actual, exp=expected, check.players=TRUE) {
+benchmark <- function(actual, exp=expected, check.players=F) {
 
     checked.cols <- if (check.players) c("timestamp", "player") else c("timestamp")
 
@@ -52,18 +48,20 @@ benchmark <- function(actual, exp=expected, check.players=TRUE) {
 
     ## every duplicate alarm is a false positive
     duplicates <- data.frame(actual[which(duplicated(actual)),])
-    #names(duplicates) <- checked.cols
     false.pos <- data.frame(rbind(false.pos, duplicates))
     names(false.pos) <- checked.cols
     
     result <- list("true.pos"=true.pos,
                    "false.neg"=false.neg,
                    "false.pos"=false.pos)
-    result
+    return(result)
 }
 
+## Set the detection latency for the actual touchdown event
+## corresponding to detection x, if the actual touchdown exists
 find.match <- function(actuals, x) {
     
+    THRESHOLD <-  30 * 1000 # x must fall in actual + THRESHOLD to be a match
     x <- data.frame(x)
     actuals <- data.frame(actuals)
     if (nrow(x) == 0) {
@@ -92,7 +90,15 @@ find.match <- function(actuals, x) {
     return(actuals)
 }
 
-# like setdiff, but for data.frames
+## Like setdiff, but for data.frames
 df.setdiff <- function(x, y) {
     diff <- x[!duplicated(rbind(y,x))[-seq_len(nrow(y))],]
+}
+
+## 1/2 score comes from precision, 1/2 from recall
+score.benchmark <- function(b) {
+    precision <- nrow(b$true.pos) / (nrow(b$true.pos) + nrow(b$false.pos))
+    precision <- if (is.nan(precision)) 0 else precision
+    recall <- nrow(b$true.pos) / (nrow(b$true.pos) + nrow(b$false.neg))
+    (.5 * precision) + (.5 * recall)
 }

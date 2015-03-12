@@ -1,14 +1,10 @@
-library("rjson")
 library("plyr")
-library("ggplot2")
-
-BUCKET <- 2500
 
 make.window <- function(ts, start, end) {
-    #df[which(df$timestamp > start & df$timestamp <= end),]
     ts[which(ts$t.bucket > start & ts$t.bucket <= end),]
 }
 
+# TODO: This is duplicated in plot-touchdowns.r
 as.ts <- function(df, bucket) {
     df$t.bucket <- ceiling(df$timestamp / bucket) * bucket
     ts <- ddply(df, "t.bucket", summarise, td.count = sum(is_td))
