@@ -6,11 +6,11 @@ THRESHOLD <-  30 * 1000
 expected <- data.frame(
     rbind(
         c(1418607396778,"demarco murray"),
-        c(1418608625870,"dez bryant"),
+        c(1418608620457,"dez bryant"),
         c(1418609918817,"dez bryant"),
         c(1418610531857,"chris polk"),
         c(1418614014826,"chris polk"),
-        c(1418614593480,"darren sproles"),
+        c(1418614584563,"darren sproles"),
         c(1418615124627,"demarco murray"),
         c(1418615763277,"dez bryant")),
     stringsAsFactors=FALSE)
@@ -21,6 +21,12 @@ benchmark <- function(actual, exp=expected, check.players=TRUE) {
 
     checked.cols <- if (check.players) c("timestamp", "player") else c("timestamp")
 
+    if (length(actual) == 0) {
+        return(list("true.pos"=data.frame(),
+                    "false.neg"=exp,
+                    "false.pos"=data.frame()))
+    }
+    
     actual <- data.frame(actual[,checked.cols])
     exp <- data.frame(exp[,checked.cols])
     colnames(actual) <- checked.cols
@@ -42,16 +48,18 @@ benchmark <- function(actual, exp=expected, check.players=TRUE) {
     matched.true.pos <- data.frame(matched.true.pos[,checked.cols])
     names(matched.true.pos) <- checked.cols
 
-    false.pos <- df.setdiff(actual, matched.true.pos)
+    false.pos <- data.frame(df.setdiff(actual, matched.true.pos))
 
     ## every duplicate alarm is a false positive
     duplicates <- data.frame(actual[which(duplicated(actual)),])
-    names(duplicates) <- checked.cols
-    false.pos <- rbind(false.pos, duplicates)
+    #names(duplicates) <- checked.cols
+    false.pos <- data.frame(rbind(false.pos, duplicates))
+    names(false.pos) <- checked.cols
     
     result <- list("true.pos"=true.pos,
                    "false.neg"=false.neg,
                    "false.pos"=false.pos)
+    result
 }
 
 find.match <- function(actuals, x) {

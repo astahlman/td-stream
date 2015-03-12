@@ -1,13 +1,13 @@
 library("rjson")
 library("plyr")
 library("ggplot2")
-library("Runit")
+source("benchmark.r")
 
-load.data <- function(f) {
-    d <- lapply(readLines(json.file), fromJSON)
+load.data <- function(f="../../data/json/tweets.2014-12-15.01.json") {
+    d <- lapply(readLines(f), fromJSON)
     df <- data.frame(do.call("rbind", d), stringsAsFactors=F)
-    names(df) <- c("time", "text")
-    df$time <- as.numeric(df$time)
+    names(df) <- c("timestamp", "text")
+    df$timestamp <- as.numeric(df$timestamp)
     
     isTouchdown <- function(text) {
         grepl(pattern="touchdown",
@@ -19,69 +19,49 @@ load.data <- function(f) {
     return(df)
 }
 
-latency.test <- function() {
-    fake.results <- data.frame(
-        rbind(    
-            c(1418607396778,"demarco murray"),
-            c(1418608625870,"dez bryant"),
-            c(1418609918817,"dez bryant"),
-            c(1418610531857,"chris polk"),
-            c(1418614014826,"chris polk"),
-            c(1418614593480,"darren sproles"),
-            c(1418615124627,"demarco murray"),
-            c(1418615763277,"dez bryant")),
-        stringsAsFactors=FALSE)
-    colnames(fake.results) <- c("timestamp", "player")
-    fake.results$timestamp <- as.numeric(as.character(fake.results$timestamp))
-    
-    ## Latencies are 2,4,6...,16 summing to 72. Mean latency is 9 millis.
-    fake.results$timestamp <- fake.results$timestamp + sapply(c(1:8), function(x) x * 2)
+source("detect-touchdowns.r")
+# detector must retain a data.frame with timestamp and, optionally, players
+all.detectors <- ls(all.names=T)[grep("detect.fn", ls(all.names=T))]
 
-    results <- benchmark(fake.results)
-    
-
+# Don't reload every time if we are running this interactively
+if (!exists("tweets")) {
+    print("Loading tweets...")
+    tweets <- load.data()
 }
 
-THRESHOLD <-  30 * 1000
-expected <- data.frame(
-    rbind(
-        c(1418607396778,"demarco murray"),
-        c(1418608625870,"dez bryant"),
-        c(1418609918817,"dez bryant"),
-        c(1418610531857,"chris polk"),
-        c(1418614014826,"chris polk"),
-        c(1418614593480,"darren sproles"),
-        c(1418615124627,"demarco murray"),
-        c(1418615763277,"dez bryant")),
-    stringsAsFactors=FALSE)
-colnames(expected) <- c("timestamp", "player")
-expected$timestamp <- as.numeric(as.character(expected$timestamp))
-benchmark <- function(actual, exp=expected) {
-
-
-    exp$matches = NA
-
-    # TODO: There's probably a more idiomatic way to do this...
-    each.row <- lapply(1:dim(actual)[1],
-               FUN=function(i) list(
-                   player=actual[i, "player"],
-                   timestamp=as.numeric(actual[i, "timestamp"])))
-    Reduce(function(actual, x) find.match(actual, x),
-           x=each.row,
-           init=exp)
-}
-
-find.match <- function(actuals, x) {
-
-    x <- data.frame(x)
-    latencies <- sapply(x$timestamp - actuals$timestamp, function (l) if (l >= 0 & l <= THRESHOLD) l else Inf)
-     #latencies <- sapply(-actuals$timestamp + x["timestamp"], function (l) if (l >= 0 & l <= THRESHOLD) l else Inf)
-    if (is.finite(min(latencies)) & x$player == actuals[which.min(latencies), "player"]) {
-        latency <- x$timestamp - actuals[which.min(latencies), "timestamp"]
-        index <- which.min(latencies)
-        if (is.na(actuals$matches[index]) | latency < actuals$matches[index]) {
-            actuals$matches[index] = latency
-        }
+do.profile <- function(detectors=all.detectors) {
+    do.run <- function(detector) {
+        print(paste("Running", detector))
+        get(detector)(tweets)
     }
-    return(actuals)
+    do.benchmark <- function(results) benchmark(results, check.players=FALSE)
+    scores <- sapply(detectors, function(f) {
+        tryCatch(score.benchmark(do.benchmark(do.run(f))),
+                 error=function(cond) {
+                     message("Failure!")
+                     return(-1)
+                 })
+                 
+    })
+    #print(which(scores == max(scores)))
+    scores
+ }
+
+graph.results <- function(df, results) {
+    df$t.bucket <- trunc(df$timestamp / BUCKET) * BUCKET
+    ts <- ddply(df, "t.bucket", summarise, td.count = sum(is_td))
+    #png("td-timeseries.png")
+    plot <- ggplot(ts, aes(t.bucket, td.count)) + geom_line() + xlab("Time") + ylab("Count") + ggtitle("Tweets containing the word 'touchdown'") + scale_x_continuous(breaks=seq(from=min(df$t.bucket), to=max(df$t.bucket), by=(60000 * 5))) + theme(axis.text.x = element_text(angle=90, vjust=.5, size=6)) + geom_vline(intercept=results$true.pos$timestamp[[1]])
+    print(plot)
+    #dev.off()
 }
+
+
+score.benchmark <- function(b) {
+    precision <- nrow(b$true.pos) / (nrow(b$true.pos) + nrow(b$false.pos))
+    precision <- if (is.nan(precision)) 0 else precision
+    recall <- nrow(b$true.pos) / (nrow(b$true.pos) + nrow(b$false.neg))
+    (.5 * precision) + (.5 * recall)
+}
+
+
