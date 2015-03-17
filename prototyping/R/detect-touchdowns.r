@@ -29,7 +29,7 @@ make.variables <- function() {
     new.sizes <- c(2500, 5000, 10000)
     step.sizes <- c(1000)
     bucket.sizes <- c(2500, 5000)
-    thresholds <- seq(from=6, to=12, by=3)
+    thresholds <- c(9,12)
     expand.grid(old.sizes, new.sizes, step.sizes, bucket.sizes, thresholds)
 }
 
@@ -50,7 +50,7 @@ make.functions <- function() {
         e <- globalenv()
         function(v) {
             #e[[paste("detect.fn.composed.", i, sep="")]] <- f(v)
-            e[[paste("detect.fn.with.state", i, sep="")]] <- f(v)
+            e[[paste("detect.fn.with.state.signal.amp", i, sep="")]] <- f(v)
             i <<- i + 1
         }
     }

@@ -1,4 +1,3 @@
-library("rjson")
 library("plyr")
 library("ggplot2")
 
@@ -16,7 +15,10 @@ td.to.chars <- function(df=NULL) {
                 signal = num.tds / mean.len)
 }
 
+
 td.count <- function(df=NULL) {
+    ## lazy-load data so we don't reload when re-sourcing
+    ## the file from the REPL
     if (is.null(df)) {
         df <- load.data()
     }
@@ -26,7 +28,7 @@ td.count <- function(df=NULL) {
 
 # print(plot.signal(ts)) to display the graph, png to save to file
 plot.signal <- function(ts) {
-    plot <- ggplot(ts, aes(t.bucket, signal)) + geom_line() + xlab("Time") + ylab("Count") + ggtitle("Tweets containing the word 'touchdown'") + scale_x_continuous(breaks=seq(from=min(ts$t.bucket), to=max(ts$t.bucket), by=(60000 * 5))) + theme(axis.text.x = element_text(angle=90, vjust=.5, size=6)) # TODO: Relabel this
+    plot <- ggplot(ts, aes(t.bucket, signal)) + geom_line() + xlab("Epoch Time") + ylab("Count") + ggtitle("Tweets Containing the Word 'touchdown'") + scale_x_continuous(breaks=seq(from=min(ts$t.bucket), to=max(ts$t.bucket), by=(60000 * 15))) + theme(axis.text.x = element_text(angle=90, vjust=.5, size=6)) # TODO: Relabel this
     return(plot)
 }
 

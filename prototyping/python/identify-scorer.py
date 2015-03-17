@@ -3,14 +3,15 @@ import operator
 import itertools
 import re
 import time
+import sys
 from collections import Counter
 from os import system
 
 nltk.data.path.append('nltk/')
 
 STOP_WORDS = set(["td", "touchdown", "rt","baby"]).union(nltk.corpus.stopwords.words('english'))
-PLAYERS = set([line.strip() for line in open('data/players.txt')])
-TEAMS = set([line.strip().split()[-1] for line in open('data/teams.txt')])
+PLAYERS = set([line.strip() for line in open('../../data/players.txt')])
+TEAMS = set([line.strip().split()[-1] for line in open('../../data/teams.txt')])
 
 NUM_BIGRAMS = 15
 
@@ -60,9 +61,9 @@ def generate_alert(tweets):
     return td_alert
 
 if __name__ == "__main__":
-
+    f = sys.argv[1] if len(sys.argv) > 1 else "../../data/demarco-td.txt"
     start = time.time()
-    tweets = [line.strip() for line in open('data/demarco-td.txt')]
+    tweets = [line.strip() for line in open(f)]
     print "Read tweets in: %f seconds" % (time.time() - start)
     alert = generate_alert(tweets)
     print "Finished in: %f seconds" % (time.time() - start)
