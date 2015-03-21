@@ -29,11 +29,13 @@ benchmark <- function(actual, exp=expected, check.players=F) {
     colnames(exp) <- checked.cols
     exp$matches = NA
 
+    ## Match each detected event, x, with at most one actual touchdown
     each.row <- split(actual, rownames(actual))
     time.diffs <- Reduce(function(actual, x) find.match(actual, x),
                    x=each.row,
                    init=exp)
 
+    ## Rename column
     names(time.diffs)[names(time.diffs) == "matches"] <- "latency"
     
     true.pos <- time.diffs[which(!is.na(time.diffs$latency)),]
@@ -44,10 +46,12 @@ benchmark <- function(actual, exp=expected, check.players=F) {
     matched.true.pos <- data.frame(matched.true.pos[,checked.cols])
     names(matched.true.pos) <- checked.cols
 
-    false.pos <- data.frame(df.setdiff(actual, matched.true.pos))
+    false.pos <- df.setdiff(actual, matched.true.pos)
 
-    ## every duplicate alarm is a false positive
+    ## Every duplicate detection is a false positive
     duplicates <- data.frame(actual[which(duplicated(actual)),])
+    names(duplicates) <- checked.cols
+
     false.pos <- data.frame(rbind(false.pos, duplicates))
     names(false.pos) <- checked.cols
     
@@ -93,6 +97,9 @@ find.match <- function(actuals, x) {
 ## Like setdiff, but for data.frames
 df.setdiff <- function(x, y) {
     diff <- x[!duplicated(rbind(y,x))[-seq_len(nrow(y))],]
+    diff <- data.frame(diff)
+    names(diff) <- names(x)
+    return(diff)
 }
 
 ## 1/2 score comes from precision, 1/2 from recall
