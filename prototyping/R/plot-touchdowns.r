@@ -32,6 +32,7 @@ plot.signal <- function(ts) {
     return(plot)
 }
 
+
 # TODO: Standardize name for the dataframe with cols "timestamp" and "text"
 # TODO: Abstract results parameter, just take a vector of timestamps for vertical lines
 # Adds vertical lines wherever for the results
@@ -41,5 +42,10 @@ plot.results <- function(df, results) {
     plot <- Reduce(f=function(g1, g2) g1 + g2, init=plot,
                    x=Map(f=function(t) geom_vline(xintercept=t, color="red"),
                            c(results$true.pos$timestamp, results$false.pos$timestamp)))
+    plot <- plot + ggtitle("Detected Touchdowns")
     return(plot)
+}
+
+save.plot <- function(f) {
+    ggsave(filename=f, width=4, height=3)
 }

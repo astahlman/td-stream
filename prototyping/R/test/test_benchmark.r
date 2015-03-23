@@ -1,6 +1,6 @@
 options(digits=15)
 
-test_that("A perfect detection algorithm", {
+test_that("A perfect detection algorithm gets a perfect score", {
     
     output <- data.frame(
         
@@ -30,9 +30,11 @@ test_that("A perfect detection algorithm", {
 
     expect_that(metrics$true.pos$latency, equals(latencies))
     expect_that(mean(metrics$true.pos$latency), equals(9))
+    print(score.benchmark(metrics))
+    expect_that(score.benchmark(metrics), equals(1))
 })
 
-test_that("An algorithm that really likes Dez", {
+test_that("An algorithm that really likes Dez scores 3/8", {
     
     output <- data.frame(
         rbind(    
@@ -54,9 +56,10 @@ test_that("An algorithm that really likes Dez", {
     expect_that(nrow(metrics$true.pos), equals(3)) 
     expect_that(nrow(metrics$false.neg), equals(5))
     expect_that(nrow(metrics$false.pos), equals(5))
+    expect_that(score.benchmark(metrics), equals(.375))    
 })
 
-test_that("Two false positives, one false negative", {
+test_that("Two false positives and one false negative scores ~ 0.826", {
 
     output <- data.frame(
         rbind(    
@@ -95,9 +98,10 @@ test_that("Two false positives, one false negative", {
     expect_that(nrow(metrics$false.pos), equals(2))
 
     expect_that(metrics$true.pos$latency, equals(expected.latency))
+    expect_that(score.benchmark(metrics), equals(.826388889))
 })
           
-test_that("We miss everything", {
+test_that("An implementation that misses everything scores 0", {
 
     output <- data.frame(timestamp=numeric(0), player=character(0))
     output$timestamp <- as.numeric(as.character(output$timestamp))
@@ -107,6 +111,7 @@ test_that("We miss everything", {
     expect_that(nrow(metrics$true.pos), equals(0))
     expect_that(nrow(metrics$false.neg), equals(8))
     expect_that(nrow(metrics$false.pos), equals(0))
+    expect_that(score.benchmark(metrics), equals(0))
 })
 
 test_that("We can toggle whether the player who scored matters", {
@@ -132,4 +137,5 @@ test_that("We can toggle whether the player who scored matters", {
     expect_that(nrow(metrics$true.pos), equals(8)) ## every td is detected
     expect_that(nrow(metrics$false.neg), equals(0)) ## no td is missed
     expect_that(nrow(metrics$false.pos), equals(0)) ## no false alarms
+    expect_that(score.benchmark(metrics), equals(1))
 })

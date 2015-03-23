@@ -2,28 +2,47 @@ source("benchmark.r")
 source("load-tweets.r")
 source("detect-touchdowns.r")
 
-# detector must retain a data.frame with timestamp and, optionally, players
-all.detectors <- ls(all.names=T)[grep("detect.fn", ls(all.names=T))]
+blacklist <- c("moving-avg-1.r")
+#blacklist <- c()
 
-# Don't reload every time if we are running this interactively
-if (!exists("tweets")) {
-    print("Loading tweets...")
-    tweets <- load.data()
+load.candidates <- function() {
+    files <- dir("candidates")
+    files <- Filter(function(c) !(c %in% blacklist), files)
+    candidates <- lapply(files, function(f) {
+        source(paste("candidates", f, sep="/"))
+        get.candidates()
+    })
+
+    unlist(candidates, recursive=F)
 }
 
-do.profile <- function(detectors=all.detectors) {
-    do.run <- function(detector) {
-        print(paste("Running", detector))
-        get(detector)(tweets)
+do.run <- function(candidates=NULL) {
+    
+    ## Don't reload every time if we are running this interactively
+    if (!exists("tweets")) {
+        print("Loading tweets...")
+        tweets <- load.data()
     }
-    do.benchmark <- function(results) benchmark(results, check.players=FALSE)
-    scores <- sapply(detectors, function(f) {
-        tryCatch(score.benchmark(do.benchmark(do.run(f))),
-                 error=function(cond) {
-                     message("Failure!")
-                     return(-1)
-                 })
-                 
-    })
-    scores
- }
+
+    df <- tweets
+    candidates <- if (!is.null(candidates)) candidates else load.candidates()
+    results <- Map(function(c) {
+        print(c)
+        c$result <- c$f(df)
+        return(c)
+    }, candidates)
+
+    scores <- lapply(
+        results,
+        function(x) {
+            list(
+                score=score.benchmark(benchmark(x$result)),
+                description=x$description)
+        })
+    return(do.call(rbind.data.frame, scores))
+}
+
+
+
+
+

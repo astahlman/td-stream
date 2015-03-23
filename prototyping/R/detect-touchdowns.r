@@ -57,7 +57,7 @@ make.functions <- function() {
     apply(var.combos, 1, put.in.env(make.partial))
 }
 
-make.functions()
+##make.functions()
 
 do.detection <- function(df,
                 OLD_WINDOW_SIZE=30000,

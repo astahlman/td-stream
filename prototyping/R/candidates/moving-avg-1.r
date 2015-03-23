@@ -23,7 +23,6 @@ do.detection <- function(df=NULL,
     print(W)
     print(STEP)
     print(THRESH)
-    
     if (is.null(df)) {
         df = load.data()
     }
@@ -63,16 +62,15 @@ make.variables <- function() {
 
 get.candidates <- function() {
     fs <- lapply(make.variables(), function(vars) {
-        args <- force(vars)
+        this.f <- do.detection ## capture the current function
         return(list(
             description=paste(
                 "Stateless moving avg. with these params:",
-                paste(args, collapse=",")),
+                paste(vars, collapse=",")),
             f=function(df) {
-                args[["df"]] <- df
-                do.call(do.detection, args)
+                vars[["df"]] <- df
+                do.call(this.f, vars)
             }))
     })
     return(fs)
 }
-
