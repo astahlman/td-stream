@@ -13,16 +13,26 @@ expected <- data.frame(
 colnames(expected) <- c("timestamp", "player")
 expected$timestamp <- as.numeric(as.character(expected$timestamp))
 
-benchmark <- function(actual, exp=expected, check.players=F) {
+benchmark <- function(actual, exp, check.players=F) {
 
-    checked.cols <- if (check.players) c("timestamp", "player") else c("timestamp")
-
+    if (check.players) {
+        checked.cols <- c("timestamp", "player")
+    } else {
+        checked.cols <- c("timestamp")
+    }
+    
     if (length(actual) == 0) {
         return(list("true.pos"=data.frame(),
                     "false.neg"=exp,
                     "false.pos"=data.frame()))
     }
-    
+
+    if (nrow(exp) == 0) {
+        return(list("true.pos"=data.frame(),
+                    "false.neg"=data.frame(),
+                    "false.pos"=exp))
+    }
+
     actual <- data.frame(actual[,checked.cols])
     exp <- data.frame(exp[,checked.cols])
     colnames(actual) <- checked.cols
@@ -102,88 +112,103 @@ df.setdiff <- function(x, y) {
     return(diff)
 }
 
-## 1/2 score comes from precision, 1/2 from recall
-score.benchmark <- function(b) {
-    precision <- nrow(b$true.pos) / (nrow(b$true.pos) + nrow(b$false.pos))
-    precision <- if (is.nan(precision)) 0 else precision
-    recall <- nrow(b$true.pos) / (nrow(b$true.pos) + nrow(b$false.neg))
-    (.5 * precision) + (.5 * recall)
-}
 
+score.benchmark <- function(b) {
+
+    ## precision is undefined
+    if (nrow(b$true.pos) == 0 & nrow(b$false.pos) == 0) {
+        return(ifelse(nrow(b$false.neg) > 0, 0, 1))
+    }
+    
+    ## recall is undefined
+    if (nrow(b$true.pos) == 0 & nrow(b$false.neg) == 0) {
+        return(ifelse(nrow(b$false.pos) == 0, 1, 0))
+    }
+    
+    precision <- nrow(b$true.pos) / (nrow(b$true.pos) + nrow(b$false.pos))
+    recall <- nrow(b$true.pos) / (nrow(b$true.pos) + nrow(b$false.neg))
+
+    # F1 score (http://en.wikipedia.org/wiki/F1_score)
+    return(2 * (precision * recall)/(precision + recall))
+}
 
 ## Contains all touchdowns in our entire dataset
 all.touchdowns <- data.frame(
     rbind(
-        ## From tweets.2014-12-15.01:
+        ## From tweets.2014-12-15.01.json:
         ## Cowboys vs. Eagles
-        c(1418607396778,"demarco murray"),
-        c(1418608620457,"dez bryant"),
-        c(1418609918817,"dez bryant"),
-        c(1418610531857,"chris polk"),
-        c(1418614014826,"chris polk"),
-        c(1418614584563,"darren sproles"),
-        c(1418615124627,"demarco murray"),
-        c(1418615763277,"dez bryant"),
+        c(1418607396778,"demarco murray", "tweets.2014-12-15.01.json"),
+        c(1418608620457,"dez bryant", "tweets.2014-12-15.01.json"),
+        c(1418609918817,"dez bryant", "tweets.2014-12-15.01.json"),
+        c(1418610531857,"chris polk", "tweets.2014-12-15.01.json"),
+        c(1418614014826,"chris polk", "tweets.2014-12-15.01.json"),
+        c(1418614584563,"darren sproles", "tweets.2014-12-15.01.json"),
+        c(1418615124627,"demarco murray", "tweets.2014-12-15.01.json"),
+        c(1418615763277,"dez bryant", "tweets.2014-12-15.01.json"),
 
-        ## From tweets.2015-01-03.21:
+        ## From tweets.2015-01-03.21.json:
         ## Panthers vs. Cardinals
-        c(1420322307784, "jonathan stewart"),
-        c(1420323311546, "darren fells"),
-        c(1420325444064, "marion grice"), ## after an official review
-        c(1420328443799, "fozzy whittaker"), ## stream cut off in mid-jubilation
+        c(1420322307784, "jonathan stewart", "tweets.2015-01-03.21.json"),
+        c(1420323311546, "darren fells", "tweets.2015-01-03.21.json"),
+        c(1420325444064, "marion grice", "tweets.2015-01-03.21.json"), ## after an official review
+        c(1420328443799, "fozzy whittaker", "tweets.2015-01-03.21.json"), ## stream cut off in mid-jubilation
 
-        ## From tweets.2015-01-04.00:
+        ## From tweets.2015-01-04.00.json:
         ## Ravens vs. Steelers
-        c(1420336225464, "bernard pierce"),
-        c(1420341051666, "torrey smith"),
-        c(1420342472537, "antonio brown"), ## challenged and reversed
-        c(1420342780503, "martavis bryant"),
-        c(1420343794738, "crockett gillmore"),
+        c(1420336225464, "bernard pierce", "tweets.2015-01-04.00.json"),
+        c(1420341051666, "torrey smith", "tweets.2015-01-04.00.json"),
+        c(1420342472537, "antonio brown", "tweets.2015-01-04.00.json"), ## challenged and reversed
+        c(1420342780503, "martavis bryant", "tweets.2015-01-04.00.json"),
+        c(1420343794738, "crockett gillmore", "tweets.2015-01-04.00.json"),
 
-        ## From tweets.2015-01-10.21:
+        ## From tweets.2015-01-10.21.json:
         ## Ravens vs. Patriots
-        c(1420925929770, "kamar aiken"),
-        c(1420927164259, "steve smith"),
-        c(1420927826867, "tom brady"),
-        c(1420930017796, "danny amendola"),
-        c(1420931329205, "owen daniels"),
-        c(1420933189578, "justin forsett"),
-        c(1420933853390, "rob gronkowski"),
-        c(1420934675490, "danny amendola"), ## pass from edelman
+        c(1420925929770, "kamar aiken", "tweets.2015-01-10.21.json"),
+        c(1420927164259, "steve smith", "tweets.2015-01-10.21.json"),
+        c(1420927826867, "tom brady", "tweets.2015-01-10.21.json"),
+        c(1420930017796, "danny amendola", "tweets.2015-01-10.21.json"),
+        c(1420931329205, "owen daniels", "tweets.2015-01-10.21.json"),
+        c(1420933189578, "justin forsett", "tweets.2015-01-10.21.json"),
+        c(1420933853390, "rob gronkowski", "tweets.2015-01-10.21.json"),
+        c(1420934675490, "danny amendola", "tweets.2015-01-10.21.json"), ## pass from edelman
 
-        ## From tweets.2015.01.11.00:
+        ##### PARTITION @ 1420935046297 ######
+        
+        ## From tweets.2015-01-11.00.json:
         ## Seahawks vs. Panthers
-        c(1420941439960, "doug baldwin"),
-        c(1420942356604, "kelvin benjamin"),
-        c(1420942868721, "jermaine kearse"),
-        c(1420948391051, "luke willson"),
-        c(1420948923760, "kam chancellor"),
-        c(1420949535778, "kelvin benjamin"),
+        c(1420941439960, "doug baldwin", "tweets.2015-01-11.00.json"),
+        c(1420942356604, "kelvin benjamin", "tweets.2015-01-11.00.json"),
+        c(1420942868721, "jermaine kearse", "tweets.2015-01-11.00.json"),
+        c(1420948391051, "luke willson", "tweets.2015-01-11.00.json"),
+        c(1420948923760, "kam chancellor", "tweets.2015-01-11.00.json"),
+        c(1420949535778, "kelvin benjamin", "tweets.2015-01-11.00.json"),
 
-        ## From tweets.2015.01.11.18
+        ## From tweets.2015-01-11.18.json
         ## Packers vs. Cowboys
-        c(1421000075195, "andrew quarless"),
-        c(1421001163846, "tyler clutts"),
-        c(1421002527647, "terrance williams"),
+        c(1421000075195, "andrew quarless", "tweets.2015-01-11.18.json"),
+        c(1421001163846, "tyler clutts", "tweets.2015-01-11.18.json"),
+        c(1421002527647, "terrance williams", "tweets.2015-01-11.18.json"),
 
-        ## From tweets.2015.01.18.20
+        ## From tweets.2015-01-18.20.json
         ## Packers vs. Seahawks
-        c(1421614079309, "randall cobb"),
-        c(1421618825996, "garry gilliam"), ## fake fg pass from jon ryan
-        c(1421621824353, "marshawn lynch"), ## reversed
-        c(1421622090788, "russell wilson"),
-        c(1421622554679, "marshawn lynch"),
-        c(1421623760853, "jermaine kearse"),
+        c(1421614079309, "randall cobb", "tweets.2015-01-18.20.json"),
+        c(1421618825996, "garry gilliam", "tweets.2015-01-18.20.json"), ## fake fg pass from jon ryan
+        c(1421621824353, "marshawn lynch", "tweets.2015-01-18.20.json"), ## reversed
+        c(1421622090788, "russell wilson", "tweets.2015-01-18.20.json"),
+        c(1421622554679, "marshawn lynch", "tweets.2015-01-18.20.json"),
+        c(1421623760853, "jermaine kearse", "tweets.2015-01-18.20.json"),
 
         ## Patriots vs. Colts
-        c(1421625677420, "legarrette blount"),
-        c(1421627195617, "james develin"),
-        c(1421629101030, "zurlon tipton"),
-        c(1421632134037, "nate solder"),
-        c(1421633258404, "rob gronkowski"),
-        c(1421633815193, "legarrette blount"),
+        c(1421625677420, "legarrette blount", "tweets.2015-01-18.20.json"),
+        c(1421627195617, "james develin", "tweets.2015-01-18.20.json"),
+        c(1421629101030, "zurlon tipton", "tweets.2015-01-18.20.json"),
+        c(1421632134037, "nate solder", "tweets.2015-01-18.20.json"),
+        c(1421633258404, "rob gronkowski", "tweets.2015-01-18.20.json"),
+        c(1421633815193, "legarrette blount", "tweets.2015-01-18.20.json"),
 
-        ## From tweets.2015.01.19.02
+        ## From tweets.2015-01-19.02.json
         ## Patriots vs. Colts
-        c(1421634938146, "legarrette blount")
-))
+        c(1421634938146, "legarrette blount", "tweets.2015-01-19.02.json")))
+
+names(all.touchdowns) <- c("timestamp", "player", "file")
+all.touchdowns$timestamp <- as.numeric(as.character(all.touchdowns$timestamp))

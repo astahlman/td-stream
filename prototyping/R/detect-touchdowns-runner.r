@@ -1,3 +1,4 @@
+library("reshape2")
 source("benchmark.r")
 source("load-tweets.r")
 source("detect-touchdowns.r")
@@ -16,33 +17,87 @@ load.candidates <- function() {
     unlist(candidates, recursive=F)
 }
 
-do.run <- function(candidates=NULL) {
-    
-    ## Don't reload every time if we are running this interactively
-    if (!exists("tweets")) {
-        print("Loading tweets...")
-        tweets <- load.data()
-    }
+benchmark.candidates <- function(tweets, exp.touchdowns, candidates) {
 
-    df <- tweets
-    candidates <- if (!is.null(candidates)) candidates else load.candidates()
     results <- Map(function(c) {
         print(c)
-        c$result <- c$f(df)
+        c$result <- c$f(tweets)
         return(c)
     }, candidates)
 
-    scores <- lapply(
+    benchmarks <- lapply(
         results,
         function(x) {
             list(
-                score=score.benchmark(benchmark(x$result)),
+                benchmark=benchmark(x$result, exp.touchdowns),
                 description=x$description)
         })
-    return(do.call(rbind.data.frame, scores))
+
+    return(benchmarks)
 }
 
+partition.data <- function(tweets) {
+    files <- levels(tweets$file)
+    train.files <- files[1:(.5 * length(files))]
+    validation.files <- files[-seq_along(train.files)]
+    
+    ## cutoff <- 1420935046297
+    
+    list(train.data=tweets[which(tweets$file %in% train.files),],
+         train.actual=all.touchdowns[which(all.touchdowns$file %in% train.files),],
+         validation.data=tweets[which(tweets$file %in% validation.files),],
+         validation.actual=all.touchdowns[which(all.touchdowns$file %in% validation.files),])
+}
 
+score.candidates.by.file <- function(tweets, actual, cand) {
+    
+    results <- Map(function(f) {
+        benchmark.candidates(
+            tweets[which(tweets$file == f),],
+            actual[which(actual$file == f),],
+            cand)
+    }, levels(droplevels(tweets$file)))
+    
+    scores <- sapply(results,
+                     function(file.results) {
+                         sapply(file.results,
+                                function(candidate) {
+                                    score.benchmark(candidate$benchmark)
+                                })
+                            })
 
+    results.df <- melt(scores)
+    colnames(results.df) <- c("candidate", "file", "score")
+    return(results.df)
+}
 
+run <- function(df, candidates) {
+    
+    #candidates <- tail(candidates, 4) ## faster testing
+    candidates <- Map(
+        function(i) append(candidates[[i]], list("id"=i)),
+        seq_along(candidates))
+    
+    d <- partition.data(df)
+    
+    train.results <- score.candidates.by.file(
+        d$train.data,
+        d$train.actual,
+        candidates)
 
+    avg.scores <- ddply(train.results,
+                        .(candidate),
+                        summarise,
+                        score.mean=mean(score))
+    avg.scores <- avg.scores[with(avg.scores, order(-score.mean)),]
+    top.10 <- avg.scores[1:min(nrow(avg.scores), 10),]
+
+    validation.results <- score.candidates.by.file(
+        d$validation.data,
+        d$validation.actual,
+        candidates[top.10$candidate])
+    
+    return(list(
+        train=train.results,
+        validation=validation.results))
+}
