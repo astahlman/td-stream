@@ -1,0 +1,24 @@
+* Tasks
+
+
+* Journal
+  ** Date: 2015-04-26
+  Struggling with how to reason about the organization of the
+  project. I find myself falling back into "The Kingdom of Nouns."
+  For example, a Bot detects touchdowns and identifies Scorers given
+  a TweetStream. I could define protocols for Bot, TweetStream, etc.,
+  but I don't think that would be very Clojure-y, and I want to avoid
+  writing Java with parenthesis.
+
+  Found some inspriation from [[http://thinkrelevance.com/blog/2013/06/04/clojure-workflow-reloaded][My Clojure Worklflow, Reloaded]] on Stuart
+  Sierra's blog. He talks about creating a 'system' map which
+  contains all of the necessary components. Then each function takes
+  a subset of this system map, according to which pieces of data it
+  operates on.
+  
+  Thinking about it this way helps - My system is just a map comprised
+  of a detector (function), a scorer identifier (function), a
+  broadcast hook (functions), and a tweet stream (data). No objects
+  necessary.
+
+* Design

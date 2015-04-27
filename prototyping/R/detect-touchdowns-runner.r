@@ -61,11 +61,12 @@ score.candidates.by.file <- function(tweets, actual, cand) {
     scores <- sapply(results,
                      function(file.results) {
                          sapply(file.results,
+
                                 function(candidate) {
                                     score.benchmark(candidate$benchmark)
                                 })
                             })
-
+    ## TODO: add # of {true,false}{positives,negatives}
     results.df <- melt(scores)
     colnames(results.df) <- c("candidate", "file", "score")
     return(results.df)
