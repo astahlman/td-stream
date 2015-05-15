@@ -5,28 +5,29 @@
              :refer [>! <! >!! <!! go chan buffer close! thread
                      alts! alts!! timeout sliding-buffer]])) ;; Trim...
 
-(declare simple-alert)
+(declare simple-alert tweets-since)
 
 (defn system
   "Returns a new instance of the application"
-  [& {:keys [tweet-stream td-detector scorer-identifier]}]
+  [& {:keys [tweet-stream td-detector scorer-identifier clock]}]
   {:tweet-stream tweet-stream
    :td-detector td-detector
    :scorer-ider scorer-identifier
-   :id-hook simple-alert})
+   :id-hook simple-alert
+   :clock clock})
 
-(def default-bot system)
+(def default-bot (system))
 
-(unfinished td-detector tweets-since scorer-ider read-tweets cur-time)
+(unfinished cur-time)
 
-(defn identify-scorer [tweets happened-at]
+(defn identify-scorer [tweets happened-at scorer-ider]
   "Identify the scoring team and player given a tweet buffer and the 
    time the touchdown occurred"
   (->> tweets
        (tweets-since happened-at)
        (scorer-ider)))
 
-(defn loop-step [now tweets pending-id]
+(defn loop-step [now tweets pending-id & {:keys [td-detector scorer-ider id-hook]}]
   "Takes the current time, a list of tweets, and a buffer of touchdowns
    pending identification, and mark any new touchdowns
    occurring in the last 30 seconds as pending identification. Mark any
@@ -37,14 +38,15 @@
         pending-id (concat tds pending-id)
         maybe-identified (map #(conj % 
                                (identify-scorer buffered-tweets 
-                                                (:happened-at %)))
+                                                (:happened-at %)
+                                                scorer-ider))
                         pending-id)
         identified? #(contains? % :player)
         got-identified (filter identified? maybe-identified)
         still-pending (filter (complement identified?) maybe-identified)
         to-broadcast (map #(conj % {:identified-at now}) got-identified)]
     (when (seq to-broadcast)
-      (dorun (map simple-alert to-broadcast)))
+      (dorun (map id-hook to-broadcast)))
     {:tweet-buffer buffered-tweets
      :pending (seq still-pending)
      :identified (seq to-broadcast)}))
@@ -62,19 +64,23 @@
   "Do this constantly until continue? returns false"
   ([continue?]
    (main-loop continue? default-bot))
-  ([continue? {:keys [tweet-stream td-detector scorer-ider id-hook]}]
+  ([continue? {:keys [tweet-stream td-detector scorer-ider id-hook clock]}]
    (loop [pending nil
           broadcasted 0
           tweets nil
-          i 1]
-     (let [now (cur-time i)
+          i 1
+          last-time nil]
+     (let [now (clock i last-time)
            window-start (- now 5000)
-           tweets (concat tweets (read-tweets now))
+           tweets (concat tweets (tweet-stream now))
            tweet-buffer (tweets-since window-start tweets)
            results (loop-step 
                     now
                     tweet-buffer
-                    pending)
+                    pending
+                    :td-detector td-detector
+                    :scorer-ider scorer-ider
+                    :id-hook id-hook)
            identified (:identified results)
            pending (:pending results)]
        (when (seq identified)
@@ -83,6 +89,7 @@
          (recur pending
                 (+ broadcasted (count identified))
                 tweet-buffer
-                (inc i))
+                (inc i)
+                now)
          {:broadcasted (+ broadcasted (count identified))
           :pending (count pending)})))))

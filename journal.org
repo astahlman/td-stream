@@ -1,8 +1,7 @@
-* Tasks
-
-
+* Tasks 
 * Journal
-  ** Date: 2015-04-26
+
+** <2015-04-27 Mon>
   Struggling with how to reason about the organization of the
   project. I find myself falling back into "The Kingdom of Nouns."
   For example, a Bot detects touchdowns and identifies Scorers given
@@ -20,5 +19,124 @@
   of a detector (function), a scorer identifier (function), a
   broadcast hook (functions), and a tweet stream (data). No objects
   necessary.
+  
+  About to take all of the components that I've made part of the bot
+  namespace and start putting them into the system map. I'll start
+  with the tweet stream. So we'll still have the function
+  read-tweets, but now it will accept a tweet-stream and the current
+  time. This will allow for two different implementations - one which
+  reads from a static file and filters based on the timestamp, and
+  one which reads from Twitter in real time. 
+  
+  Actually, now that I think about it, it probably makes even more
+  sense to make the system object a function instead of a thing. Let's
+  just have a system-level function called tweet-stream, which accepts
+  a single parameter - the time - and returns new tweets.
 
+** <2015-04-28 Tue>
+   Someone on SO has found the same [[http://stackoverflow.com/questions/26925557/faking-friend-credential-function-using-midje][issue]] as I have regarding Midje
+   not using injected mocked functions at runtime.
+
+   Note: You can use let-bindings inside Midje facts. [[http://www.dysfunctional-programmer.co.uk/clojure/2015/02/28/testing-higher-order-functions-clojure.html][Here's]] an example.
+
+** <2015-05-02 Sat>
+   Finally able to reproduce the weird Midje behavior.
+   Question: Does passing a Var to a function that destructures it
+   and storing the result in a map derefernce the Var?
+
+   Hypothesis: We pass the target function (a Var) to the system
+   function. It dereferences this function (what does unfinished do?)
+   and stores it in a hash-map, which we then bind to the Var
+   'test-system. Then, our precondtions rebind the Var that pointed
+   to the target function and point it to our fake implementation.
+   This has no effect, because we've already captured the
+   implementation that's going to get invoked in the hash-map that
+   test-system is bound to.
+
+   Experiment: In the REPL, defn a function called 'fake, which
+   returns the keyword :not-mocked. Create a hashmap with
+   key :my-fn and value 'fake, and bind it to the Var 'injected.
+   Get :my-fn and invoke it - the result should be :not-mocked. Now
+   defn 'fake again, so that it's implementation returns :mocked.
+   Get :my-fn and invoke it. If the hypothesis above is correct, the
+   result should be :not-mocked.
+
+   Result: Yep, as expected, the result is still :not-mocked after
+   re-defn'ing fake. This explains why the td-bot example works if I
+   inline the creation of the system map in the call to main-loop,
+   but not if I def the system map and then pass in a Var to
+   main-loop - the function which I'm trying to mock has already been
+   captured, and it's already been defined by the unfinished macro to
+   throw an exception like "#'fake has no implementation, but it was
+   called like this..."
+
+   Ended up answering [[http://stackoverflow.com/questions/26925557/faking-friend-credential-function-using-midje/30008504#30008504][this question]] on StackOverflow and creating
+   [[https://gist.github.com/anonymous/9c905325c17e56f7e04a][this]] gist on Github.
+
+
+** <2015-05-04 Mon>
+   Don't have much time tonight. Want to pick something really small
+   that I can get done in 20 minutes...
+
+
+** <2015-05-06 Wed>
+   I think I'm close to understand monads. I just started to wonder,
+   is there function to simulate a clock, where the clock simply
+   increments the time by a fixed value on every tick, but does not
+   store any mutable state?
+
+   Now I'm reading
+   http://blog.sigfpe.com/2006/08/you-could-have-invented-monads-and.html
+   The third example for random number generation seems like exactly
+   the problem I was wondering about. I feel like I'm right on the
+   verge of understanding, but I still don't. The Haskell type
+   signatures still seem so bizarre to me. Will revisit this
+   tomorrow...
+
+** <2015-05-09 Sat>
+   Leaving monads for awhile, going to step away from the theory and
+   sling some code. Let's see how far I can get setting up an
+   end-to-end test.
+
+** <2015-05-12 Tue>
+   Resuming work on the end-to-end test. Currently I'm thinking about
+   where and how to introduce state. I know I want to be able to
+   simulate a tweet stream based on a file. This means I have to do
+   I/O using a file reader. If I were just applying a transformation
+   over the contents of the file, I think I could treat it as a
+   lazy-sequence. Since I'm reading the file incrementally and
+   returning it in chunks, I think I need state, which is stored in
+   the file reader. I think I'll need to read lines until I hit a
+   tweet whose time > t, then store that in a buffer to be returned
+   on the next call. So I'll need a second piece of state, which is
+   the buffered tweets to be returned on the next call.
+
+   Got the file-based tweet stream working, just need to start
+   parsing JSON. +1 for pragmatism over purity, especially on these
+   minor test functions, although I don't regret spending time on it
+   since the goal of this project is exploratory learning, anyway.
+   
+
+** <2015-05-13 Wed>
+   Finishing up the file-based tweet stream, going to add in JSON
+   parsing.
+
+   UPDATE: Made good progress tonight. I now have a file-based
+   stream, and I can run the bot with dumb implementations of
+   touchdown detection and scorer identification, and it works! Now I
+   need to figure out a way to signal the end of a stream, or when to
+   shutdown the touchdown bot. Right now, the bot will consume the
+   entire file and then print "closing..." forever. I think now might
+   be a good time to implement the start and shutdown functions, as
+   described in Stuart Sierra's My Clojure Worfkow Reloaded post.
+   Will think more about this and look into it tomorrow, but off the
+   top of my head I'm think of having two functions, start and stop.
+   Stop just posts a message to a channel, which main-loop reads from
+   on every iteration.
+   
+   
+** <2015-05-15 Fri>
+   On an Amtrak, got a few hours. Let's see if I can get a bot that
+   runs until the stream signals shutdown, and then gets scored...
+   
 * Design
