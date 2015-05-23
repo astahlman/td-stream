@@ -32,7 +32,7 @@
    pending identification, and mark any new touchdowns
    occurring in the last 30 seconds as pending identification. Mark any
    pending touchdowns as identified if their team and player can be identified."
-  (let [buffered-tweets (tweets-since (- now 30) tweets)
+  (let [buffered-tweets (tweets-since (- now 30000) tweets)
         new-tds (td-detector buffered-tweets)
         tds (map #(hash-map :happened-at % :detected-at now) new-tds)
         pending-id (concat tds pending-id)
@@ -46,6 +46,7 @@
         still-pending (filter (complement identified?) maybe-identified)
         to-broadcast (map #(conj % {:identified-at now}) got-identified)]
     (when (seq to-broadcast)
+      (dorun (println (str "broadcasting: " (seq to-broadcast))))
       (dorun (map id-hook to-broadcast)))
     {:tweet-buffer buffered-tweets
      :pending (seq still-pending)
@@ -61,35 +62,33 @@
   (filter #(>= (:t %) t) tweets))
 
 (defn main-loop 
-  "Do this constantly until continue? returns false"
+  "Do this constantly until continue? returns false or we run out of tweets"
   ([continue?]
    (main-loop continue? default-bot))
   ([continue? {:keys [tweet-stream td-detector scorer-ider id-hook clock]}]
    (loop [pending nil
           broadcasted 0
-          tweets nil
+          tweet-buff nil
           i 1
           last-time nil]
      (let [now (clock i last-time)
-           window-start (- now 5000)
-           tweets (concat tweets (tweet-stream now))
-           tweet-buffer (tweets-since window-start tweets)
-           results (loop-step 
-                    now
-                    tweet-buffer
-                    pending
-                    :td-detector td-detector
-                    :scorer-ider scorer-ider
-                    :id-hook id-hook)
-           identified (:identified results)
-           pending (:pending results)]
-       (when (seq identified)
-         (dorun (map simple-alert identified)))
-       (if (continue? i)
-         (recur pending
-                (+ broadcasted (count identified))
-                tweet-buffer
-                (inc i)
-                now)
-         {:broadcasted (+ broadcasted (count identified))
+           ;;;window-start (- now (* 30 1000))
+           new-tweets (tweet-stream now)]
+       (if (and new-tweets (continue? i))
+         (let [tweet-buff (concat tweet-buff new-tweets)
+               results (loop-step
+                        now
+                        tweet-buff
+                        pending
+                        :td-detector td-detector
+                        :scorer-ider scorer-ider
+                        :id-hook id-hook)
+               identified (:identified results)
+               pending (:pending results)]
+           (recur pending
+                  (+ broadcasted (count identified))
+                  (:tweet-buffer results)
+                  (inc i)
+                  now))
+         {:broadcasted broadcasted
           :pending (count pending)})))))

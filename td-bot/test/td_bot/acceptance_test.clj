@@ -12,6 +12,10 @@
   (/ true-pos (+ true-pos false-neg)))
 
 (defn f1-score [results]
+  "Results should have the following keys
+   1. :true-pos
+   2. :false-pos
+   3. :false-neg"
   (let [p (precision results)
         r (recall results)]
     (if (zero? (+ p r))
@@ -55,7 +59,7 @@
 
 (defn save-result [tds]
   (map bot/simple-alert tds)
-  (swap! results concat tds))
+  (swap! results conj tds))
 
 (defn json->tweet [raw-json]
   (->
@@ -64,11 +68,10 @@
    (clojure.set/rename-keys {:timestamp_ms :t})
    (utilize.map/update :t read-string)))
 
-
 (defn file-stream [file]
   "Return a function of one-argument (now) which consumes and returns
    all the tweets up until time 'now'. File stream is closed once EOF
-   is reached."
+   is reached and nil is returned."
   (let [rdr (io/reader file)
         closed (atom false)
         buff (atom [])
@@ -97,7 +100,7 @@
 
 (defn stupid-td-detector [tweet-window]
   "1/1000 chance of identifying a touchdown at the beginning of the window"
-  (let [is-td? #(zero? (rand-int 1000))]
+  (let [is-td? #(zero? (rand-int 100000))]
     (filter
      (complement nil?)
      (map #(if (is-td?) (:t %) nil) tweet-window))))
@@ -112,6 +115,64 @@
                       :tweet-stream (file-stream "/tmp/dal-phi.txt")
                       :td-detector stupid-td-detector
                       :scorer-ider stupid-scorer-ider}))
+
+(declare label-detections)
+
+(fact "We count touchdowns as detected if they happened in the previous 30 seconds"
+      (let [detected [{:broadcasted-at 7000} ;;; true positive
+                      {:broadcasted-at 41000} ;;; false positive
+                      {:broadcasted-at 65000} ;;; true positive
+                      {:broadcasted-at 66000}] ;;; false positive
+            truth [{:t 2000} ;;; latency = 5000
+                   {:t 10000} ;;; false negative
+                   {:t 60000}]] ;;; latency = 5000
+        (label-detections detected truth)) => {:true-pos [{:t 2000 :latency 5000}
+                                                          {:t 60000 :latency 5000}]
+                                               :false-pos [{:t 41000}
+                                                           {:t 66000}]
+                                               :false-neg [{:t 10000}]})
+
+(fact "We don't associate multiple alerts with the same touchdown"
+      (let [detected [{:broadcasted-at 1000}
+                      {:broadcasted-at 2000}]
+            truth [{:t 0}]]
+        (label-detections detected truth) => {:true-pos [{:t 0 :latency 1000}]
+                                              :false-pos [{:t 2000}]
+                                              :false-neg nil}))
+
+(defn label-detections [det tds]
+  (let [det (map :broadcasted-at det)
+        tds (map :t tds)
+        r (false-neg-and-true-pos det tds)
+        tp (into #{} (map #(+ (:t %) (:latency %)) (:true-pos r)))]
+    (utilize.map/map-vals
+     (conj r {:false-pos (map (partial hash-map :t)
+                              (clojure.set/difference (set det) tp))})
+     #(seq (sort-by :t %)))))
+
+(defn false-neg-and-true-pos [det tds]
+  (letfn [(match [d td]
+            (let [diff (- d td)]
+                 (and (pos? diff) (<= diff 30000))))]
+    (reduce (fn [r td]
+              (if-let [m (first (filter #(match % td) det))]
+                (update-in r [:true-pos] conj {:t td
+                                               :latency (- m td)})
+                (update-in r [:false-neg] conj {:t td})))
+            {:true-pos nil :false-neg nil} tds)))
+
+(defn run []
+  (let [detections (atom ())
+        save-detection (fn [td] (swap! detections conj td))
+        bot (assoc (test-bot) :id-hook save-detection)
+        indefinitely (fn [_] true)]
+    (bot/main-loop indefinitely bot)
+    (let [final-detections @detections
+          results (label-detections final-detections touchdowns)]
+      (println final-detections)
+      (assoc results
+             :detections final-detections
+             :score (f1-score (utilize.map/map-vals results count))))))
 
 (fact "Our bot can detect touchdowns from the Cowboys vs. Eagles game"
       (+ 1 1) => 2)

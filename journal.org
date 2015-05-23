@@ -138,5 +138,73 @@
 ** <2015-05-15 Fri>
    On an Amtrak, got a few hours. Let's see if I can get a bot that
    runs until the stream signals shutdown, and then gets scored...
+
+** <2015-05-17 Sun>
+   Back on an Amtrak bus, should have a little over an an hour.
+
+   Noticed on Friday that my stupid detection function was seriously
+   under-detecting touchdowns, even when I changed the function to
+   detect a TD every 10 tweets. Realized that I was filtering tweets
+   into a tweet window twice, once in the main loop and once in each
+   loop step, but in the loop step I was hardcoding the window size
+   to 30. Since I'm using epoch time now, that meant that only tweets
+   within the last 30 millis of the clock got used. I decided to just
+   let the loop step take the old buffer and the new tweets and return
+   the new buffer on each iteration. This way, the main loop isn't
+   coupled to any specific window size.
+
+   Goal for today: With one command, I should be able to run a bot on
+   the test data and get back an F-1 score (which should be very
+   close to 0, right now.)
+
+   This will require two independent pieces of data:
    
+   1. Each detection event: a map, with keys player and three
+      timestamps: the (estimated) time of occurrence, detection, and
+      broadcast.
+   2. The real touchdowns: also a map, with keys player and one
+      timestamp: the actual time of occurrence.
+   
+   Then we'll need a function that takes detections and truth and
+   creates a map of true positives, false positives, and false
+   negatives. Then we can feed this to our scoring function. I'll try
+   to stick to a top-down development style. So the flow will look
+   like:
+
+   1. Create bot.
+   2. Create results atom.
+   3. Run bot with test-file, collect results in atom.
+   4. Label results (true pos, false pos, false neg.)
+   5. Score results
+
+
+** <2015-05-21 Thu>
+   I've had a couple of beers and I've got about thirty minutes. I
+   seem to remember that last time I was working on labeling events
+   as false/true positives/negatives. Guess I'll pick that back up...
+   
+** <2015-05-23 Sat>
+   Long weekend coming up.
+
+*** Goals
+    1. [X] Correctly labeling false/true positives/negatives
+    2. [ ] Scoring labeled results
+    3. [ ] End-to-end run of a given bot that results in a score
+
+*** Notes
+    I should remember that 'reduce' is a good tool in the toolbox. I
+    usually find myself (loop recur)ing in situations when I could
+    reduce, because it still feels a little more natural in cases
+    where I'm iteratively building up some data. I think it made the
+    touchdown labeling implementation a little more elegant, though.
+
+    I'm really loving having the REPL around. I have noticed that I
+    find myself doing function design bottom-up more often, though -
+    not sure how to feel about this. Maybe thinking of every function
+    as a data transformation doesn't necessarily require that
+    functions be built "up" through successive transformations, but it
+    sure seems like the natural development process when I have the
+    REPL. Maybe this is a mark of inexperience, and master functional
+    programmers synthesize their series of transformations top-down.
+       
 * Design
