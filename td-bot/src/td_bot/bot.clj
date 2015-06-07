@@ -27,20 +27,23 @@
        (tweets-since happened-at)
        (scorer-ider)))
 
-(defn loop-step [now tweets pending-id & {:keys [td-detector scorer-ider id-hook]}]
+(defn loop-step [now tweets pending-id & {:keys [td-detector alarm-val scorer-ider id-hook]}]
   "Takes the current time, a list of tweets, and a buffer of touchdowns
    pending identification, and mark any new touchdowns
    occurring in the last 30 seconds as pending identification. Mark any
    pending touchdowns as identified if their team and player can be identified."
-  (let [buffered-tweets (tweets-since (- now 30000) tweets)
-        new-tds (td-detector buffered-tweets)
-        tds (map #(hash-map :happened-at % :detected-at now) new-tds)
+  (let [;buffered-tweets (tweets-since (- now 30000) tweets)
+        detection-results (td-detector {:alarm-val alarm-val
+                                        :tweet-buff tweets})
+        tweet-buff (:tweet-buff detection-results)
+        alarm-val (:alarm-val detection-results)
+        tds (map #(hash-map :happened-at % :detected-at now) (:detections detection-results))
         pending-id (concat tds pending-id)
         maybe-identified (map #(conj % 
-                               (identify-scorer buffered-tweets 
-                                                (:happened-at %)
-                                                scorer-ider))
-                        pending-id)
+                                     (identify-scorer tweet-buff
+                                                      (:happened-at %)
+                                                      scorer-ider))
+                              pending-id)
         identified? #(contains? % :player)
         got-identified (filter identified? maybe-identified)
         still-pending (filter (complement identified?) maybe-identified)
@@ -48,15 +51,17 @@
     (when (seq to-broadcast)
       (dorun (println (str "broadcasting: " (seq to-broadcast))))
       (dorun (map id-hook to-broadcast)))
-    {:tweet-buffer buffered-tweets
+    {:tweet-buff tweet-buff
      :pending (seq still-pending)
-     :identified (seq to-broadcast)}))
+     :identified (seq to-broadcast)
+     :alarm-val alarm-val}))
 
 (defn simple-alert [{:keys [player team]}]
   (let [msg (str player " just scored a touchdown for the " team ". Hooray!")]
     (println msg)
     msg))
 
+;; TODO: Move this to detection - tests will need to be updated
 (defn tweets-since [t tweets]
   "Take tweets at-or-after t"
   (filter #(>= (:t %) t) tweets))
@@ -70,7 +75,8 @@
           broadcasted 0
           tweet-buff nil
           i 1
-          last-time nil]
+          last-time nil
+          alarm-val nil]
      (let [now (clock i last-time)
            ;;;window-start (- now (* 30 1000))
            new-tweets (tweet-stream now)]
@@ -81,14 +87,17 @@
                         tweet-buff
                         pending
                         :td-detector td-detector
+                        :alarm-val alarm-val
                         :scorer-ider scorer-ider
                         :id-hook id-hook)
                identified (:identified results)
                pending (:pending results)]
            (recur pending
                   (+ broadcasted (count identified))
-                  (:tweet-buffer results)
+                  (:tweet-buff results)
                   (inc i)
-                  now))
+                  now
+                  (:alarm-val results)))
          {:broadcasted broadcasted
           :pending (count pending)})))))
+

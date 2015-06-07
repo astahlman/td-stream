@@ -25,6 +25,7 @@
      (<= i 2))
 
 (facts "About the main loop"
+       
        (fact "If tweets are detected, we log and broadcast them"
              (bot/main-loop twice (test-system)) => {:broadcasted 1 :pending 0}
               (provided
@@ -38,8 +39,10 @@
                               tweets-1
                               nil
                               :td-detector td-detector-fn
+                              :alarm-val nil
                               :scorer-ider anything
-                              :id-hook anything) => {:tweet-buffer tweets-1
+                              :id-hook anything) => {:tweet-buff tweets-1
+                                                     :alarm-val 13.0
                                                      :pending [{:detected-at 5000
                                                                 :happened-at 3000}]
                                                      :identified nil}
@@ -48,12 +51,15 @@
                               [{:detected-at 5000
                                 :happened-at 3000}]
                               :td-detector td-detector-fn
+                              :alarm-val 13.0
                               :scorer-ider anything
-                              :id-hook anything) => {:tweet-buffer all-tweets
+                              :id-hook anything) => {:tweet-buff all-tweets
+                                                     :alarm-val 13.0
                                                      :pending nil
                                                      :identified [first-touchdown]})))
 
 (facts "About each loop step"
+       
        (fact "If we can't identify the scorer, we keep the touchdown as pending"
              (bot/loop-step
               45000
@@ -61,15 +67,20 @@
               nil
               :td-detector td-detector-fn
               :scorer-ider scorer-ider-fn
-              :id-hook bot/simple-alert) => {:tweet-buffer ..buffered-tweets..
+              :id-hook bot/simple-alert) => {:tweet-buff ..tweet-buff..
+                                             :alarm-val 13.0
                                              :identified nil
                                              :pending '({:detected-at 45000
                                                          :happened-at 42000})}
               (provided
-               (bot/tweets-since 15000 ..tweets..) => ..buffered-tweets..
-               (td-detector-fn ..buffered-tweets..) => [42000]
-               (bot/tweets-since 42000 ..buffered-tweets..) => ..post-td-tweets..
+               (td-detector-fn {:alarm-val nil
+                                :tweet-buff ..tweets..
+                                }) => {:alarm-val 13.0
+                                       :tweet-buff ..tweet-buff..
+                                       :detections [42000]}
+               (bot/tweets-since 42000 ..tweet-buff..) => ..post-td-tweets..
                (scorer-ider-fn ..post-td-tweets..) => nil))
+       
        (fact "If we can identify the scorer, we broadcast it and mark the touchdown as identified"
              (bot/loop-step
               50000
@@ -77,18 +88,21 @@
               '({:detected-at 45000
                  :happened-at 42000})
               :td-detector td-detector-fn
+              :alarm-val 13.0
               :scorer-ider scorer-ider-fn
-              :id-hook bot/simple-alert) => {:tweet-buffer ..buffered-tweets..
+              :id-hook bot/simple-alert) => {:tweet-buff ..tweet-buff..
                                              :identified '({:happened-at 42000
                                                             :detected-at 45000
                                                             :identified-at 50000
                                                             :player "marshawn lynch"
                                                             :team "seattle seahawks"})
-                                             :pending nil}
+                                             :pending nil
+                                             :alarm-val 13.0}
               (provided
-               (bot/tweets-since 20000 ..tweets..) => ..buffered-tweets..
-               (td-detector-fn ..buffered-tweets..) => nil
-               (bot/tweets-since 42000 ..buffered-tweets..) => ..post-td-tweets..
+               (td-detector-fn {:alarm-val 13.0
+                                :tweet-buff ..tweets..}) => {:alarm-val 13.0
+                                                             :tweet-buff ..tweet-buff..}
+               (bot/tweets-since 42000 ..tweet-buff..) => ..post-td-tweets..
                (scorer-ider-fn ..post-td-tweets..) => {:player "marshawn lynch"
                                                        :team "seattle seahawks"}
                (bot/simple-alert {:happened-at 42000
@@ -96,6 +110,7 @@
                                   :identified-at 50000
                                   :player "marshawn lynch"
                                   :team "seattle seahawks"}) => nil :times 1))
+       
        (fact "We can detect multiple touchdowns in a single step"
              (bot/loop-step
               60000
@@ -103,15 +118,18 @@
               nil
               :td-detector td-detector-fn
               :scorer-ider scorer-ider-fn
-              :id-hook bot/simple-alert) => {:tweet-buffer ..buffered-tweets..
-                                               :identified nil
-                                               :pending '({:detected-at 60000
-                                                           :happened-at 35000}
-                                                          {:detected-at 60000
-                                                           :happened-at 40000})}
+              :id-hook bot/simple-alert) => {:tweet-buff ..tweet-buff..
+                                             :identified nil
+                                             :pending '({:detected-at 60000
+                                                         :happened-at 35000}
+                                                        {:detected-at 60000
+                                                         :happened-at 40000})
+                                             :alarm-val ..positive-number..}
               (provided
-               (bot/tweets-since 30000 ..tweets..) => ..buffered-tweets..
-               (bot/tweets-since 35000 ..buffered-tweets..) => ..post-td-1-tweets..
-               (bot/tweets-since 40000 ..buffered-tweets..) => ..post-td-2-tweets..
-               (td-detector-fn ..buffered-tweets..) => [35000 40000]
+               (bot/tweets-since 35000 ..tweet-buff..) => ..post-td-1-tweets..
+               (bot/tweets-since 40000 ..tweet-buff..) => ..post-td-2-tweets..
+               (td-detector-fn {:alarm-val nil
+                                :tweet-buff ..tweets..}) => {:alarm-val ..positive-number..
+                                                             :tweet-buff ..tweet-buff..
+                                                             :detections [35000 40000]}
                (scorer-ider-fn anything) => nil)))

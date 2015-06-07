@@ -2,11 +2,15 @@
   (:use midje.sweet
         [td-bot.test-data :only [touchdowns]])
   (:require [td-bot.bot :as bot]
+            [td-bot.detection :as detect]
             [clojure.java.io :as io]
             [clojure.data.json :as json]))
 
 (defn precision [{:keys [true-pos false-pos]}]
-  (/ true-pos (+ true-pos false-pos)))
+  (let [denom (+ true-pos false-pos)]
+    (if (zero? denom)
+      Double/NaN
+      (/ true-pos denom))))
 
 (defn recall [{:keys [true-pos false-neg]}]
   (/ true-pos (+ true-pos false-neg)))
@@ -18,9 +22,10 @@
    3. :false-neg"
   (let [p (precision results)
         r (recall results)]
-    (if (zero? (+ p r))
-      0
-      (* 2 (/ (* p r) (+ p r))))))
+    (cond
+      (Double/isNaN p) 0
+      (zero? (+ p r)) 0
+      :else (* 2 (/ (* p r) (+ p r))))))
 
 (fact "We can calculate a perfect F1 score"
       (f1-score ..results..) => 1
@@ -34,16 +39,28 @@
        (precision ..results..) => 0.5
        (recall ..results..) => 0.75))
 
-(fact "We count an undefined F1 as 0"
-      (f1-score ..results..) => 0
-      (provided
-       (precision ..results..) => 0
-       (recall ..results..) => 0))
+(facts "About what we do in exceptional cases"
+       (fact "We count an undefined F1 as 0"
+             (f1-score ..results..) => 0
+             (provided
+              (precision ..results..) => 0
+              (recall ..results..) => 0))
+       (fact "If precision is undefined, the F1 score is 0"
+             (f1-score ..results..) => 0
+             (provided
+              (precision ..results..) => Double/NaN
+              (recall ..results..) => 1)))
 
 (fact "We can calculate the precision"
       (precision {:true-pos 3
                   :false-pos 1
                   :false-neg anything}) => 3/4)
+
+(fact "If there are no positives, precision is undefined"
+      (precision {:false-neg 10
+                  :true-pos 0
+                  :false-pos 0}) => #(Double/isNaN %))
+
 
 (fact "We can calculate the recall"
       (recall {:true-pos 2
@@ -109,39 +126,20 @@
   {:player "demarco murray"
    :team "dallas cowboys"})
 
+(def test-file "/Users/astahlman/Documents/Programming/ML/td-stream/data/json/raw/tweets.2014-12-15.01.json")
+
 (defn test-bot []
   (conj (bot/system) {:id-hook save-result
                       :clock test-clock
-                      :tweet-stream (file-stream "/tmp/dal-phi.txt")
-                      :td-detector stupid-td-detector
+                      :tweet-stream (file-stream test-file)
+                      :td-detector detect/detect-tds
                       :scorer-ider stupid-scorer-ider}))
 
-(declare label-detections)
-
-(fact "We count touchdowns as detected if they happened in the previous 30 seconds"
-      (let [detected [{:broadcasted-at 7000} ;;; true positive
-                      {:broadcasted-at 41000} ;;; false positive
-                      {:broadcasted-at 65000} ;;; true positive
-                      {:broadcasted-at 66000}] ;;; false positive
-            truth [{:t 2000} ;;; latency = 5000
-                   {:t 10000} ;;; false negative
-                   {:t 60000}]] ;;; latency = 5000
-        (label-detections detected truth)) => {:true-pos [{:t 2000 :latency 5000}
-                                                          {:t 60000 :latency 5000}]
-                                               :false-pos [{:t 41000}
-                                                           {:t 66000}]
-                                               :false-neg [{:t 10000}]})
-
-(fact "We don't associate multiple alerts with the same touchdown"
-      (let [detected [{:broadcasted-at 1000}
-                      {:broadcasted-at 2000}]
-            truth [{:t 0}]]
-        (label-detections detected truth) => {:true-pos [{:t 0 :latency 1000}]
-                                              :false-pos [{:t 2000}]
-                                              :false-neg nil}))
+(declare false-neg-and-true-pos)
 
 (defn label-detections [det tds]
-  (let [det (map :broadcasted-at det)
+  (println (str "Detections: " (into [] det)))
+  (let [det (map :identified-at det)
         tds (map :t tds)
         r (false-neg-and-true-pos det tds)
         tp (into #{} (map #(+ (:t %) (:latency %)) (:true-pos r)))]
@@ -151,6 +149,7 @@
      #(seq (sort-by :t %)))))
 
 (defn false-neg-and-true-pos [det tds]
+  (println (str "Detections: " (into [] det) "\nTds: " (into [] tds)))
   (letfn [(match [d td]
             (let [diff (- d td)]
                  (and (pos? diff) (<= diff 30000))))]
@@ -161,19 +160,96 @@
                 (update-in r [:false-neg] conj {:t td})))
             {:true-pos nil :false-neg nil} tds)))
 
+(fact "We count touchdowns as detected if they happened in the previous 30 seconds"
+      (let [detected [{:identified-at 7000} ;;; true positive
+                      {:identified-at 41000} ;;; false positive
+                      {:identified-at 65000} ;;; true positive
+                      {:identified-at 66000}] ;;; false positive
+            truth [{:t 2000} ;;; latency = 5000
+                   {:t 10000} ;;; false negative
+                   {:t 60000}]] ;;; latency = 5000
+        (label-detections detected truth)) => {:true-pos [{:t 2000 :latency 5000}
+                                                          {:t 60000 :latency 5000}]
+                                               :false-pos [{:t 41000}
+                                                           {:t 66000}]
+                                               :false-neg [{:t 10000}]})
+
+(fact "We don't associate multiple alerts with the same touchdown"
+      (let [detected [{:identified-at 1000}
+                      {:identified-at 2000}]
+            truth [{:t 0}]]
+        (label-detections detected truth) => {:true-pos [{:t 0 :latency 1000}]
+                                              :false-pos [{:t 2000}]
+                                              :false-neg nil}))
+
+(defn score-output [out]
+  "out has keys :true-pos, :false-pos, and :false-neg"
+  (let [counts (reduce (fn [m [k v]]
+                         (assoc m k (count v)))
+                       {} out)]
+    (f1-score counts)))
+
+(facts "About how we score labelled results"
+       (fact "A perfect bot results in a perfect score"
+             (score-output {:true-pos [{:t 1000 :latency 1000}
+                                       {:t 2000 :latency 1000}]
+                            :false-pos nil
+                            :false-neg nil}) => 1)
+       (fact "The timings of the detections don't matter, only count of each label"
+             (score-output {:true-pos [{:t 1 :latency 2}
+                                       {:t 2 :latency 2}
+                                       {:t 3 :latency 2}]
+                            :false-neg [{:t 1}
+                                        {:t 2}]
+                            :false-pos [{:t 1}]}) => 2/3))
+
+(defn- score-player-id [ground-truth detections]
+  "Return the ratio of correct identifications for player and team"
+  nil)
+
+(facts "The identification function scores along both the player
+        and team dimensions"
+       (let [ground-truth [{:team "dallas cowboys"
+                            :player "demarco murray"
+                            :t 1000}
+                           {:team "pittsburgh steelers"
+                            :player "antonio brown"
+                            :t 7000}
+                           {:team "seattle seahawks"
+                            :player "marshawn lynch"
+                            :t 19000}]
+             detections [{:team "dallas cowboys"
+                          :player "dez bryant"
+                          :detected-at 1500}
+                         {:team "miami dolphins"
+                          :player "antonio brown"
+                          :detected-at 15000}
+                         {:team "seattle seahawks"
+                          :player "marshawn lynch"
+                          :detected-at 21000}]]
+         (score-player-id ground-truth detections) => {:player-score (/ 2 3)
+                                                       :team-score (/ 2 3)}))
+
+
+(facts "Our touchdown scores 'pretty well' on our test data set from
+        the Cowboys vs. Eagles game"
+       (let [results (run)]
+         (:f1-score results) => (partial <= (/ 8 9))))
+
+(def ^:private test-file "/Users/astahlman/Documents/Programming/ML/td-stream/td-bot/data/demarco-first-td.txt")
+
 (defn run []
   (let [detections (atom ())
         save-detection (fn [td] (swap! detections conj td))
         bot (assoc (test-bot) :id-hook save-detection)
         indefinitely (fn [_] true)]
     (bot/main-loop indefinitely bot)
-    (let [final-detections @detections
-          results (label-detections final-detections touchdowns)]
-      (println final-detections)
+    (let [raw-detections @detections
+          results (label-detections raw-detections touchdowns)]
+      (println (str "Raw detections:" raw-detections))
+      (println (str "Results: " results))
       (assoc results
-             :detections final-detections
-             :score (f1-score (utilize.map/map-vals results count))))))
+             :detections raw-detections
+             :f1-score (score-output results)))))
 
-(fact "Our bot can detect touchdowns from the Cowboys vs. Eagles game"
-      (+ 1 1) => 2)
 

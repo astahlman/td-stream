@@ -1,4 +1,18 @@
-* Tasks 
+* Tasks
+
+** DONE Set up an evaluation harness
+   1. [X] Run a bot
+   2. [X] Setup a file-based tweet stream
+   3. [X] Score the output of the bot
+
+** TODO Implement detection algorithm
+
+** TODO Incorporate scorer identity into scores
+
+** TODO Implement identification algorithm
+
+** TODO Connect the bot to Twitter
+
 * Journal
 
 ** <2015-04-27 Mon>
@@ -188,8 +202,18 @@
 
 *** Goals
     1. [X] Correctly labeling false/true positives/negatives
-    2. [ ] Scoring labeled results
-    3. [ ] End-to-end run of a given bot that results in a score
+    2. [X] Scoring labeled results
+    3. [X] End-to-end run of a given bot that results in a score
+
+*** Tooling
+    :PROPERTIES:
+    :tool:     emacs
+    :END:
+    evil-mode is starting to drive me crazy. Every time a temporary
+    stack-trace window pops up from my REPL, I somehow end up back in
+    evil-mode and end up in a maddening loop of q-ESC-q-ESC trying to
+    get out. I may just disable evil-mode by default, since most of
+    what I use emacs for is Lisp-y.
 
 *** Notes
     I should remember that 'reduce' is a good tool in the toolbox. I
@@ -206,5 +230,120 @@
     sure seems like the natural development process when I have the
     REPL. Maybe this is a mark of inexperience, and master functional
     programmers synthesize their series of transformations top-down.
-       
-* Design
+
+    Making great progress today. I've now got a system that, given a
+    touchdown bot, feeds it a file-based tweet stream, captures the
+    emitted touchdown notifications, and scores the bot's output
+    against a known ground-truth.
+
+** <2015-05-24 Sun>
+   Starting work on the detection algorithm today. I've already got a
+   working R version, so I think it should be relatively
+   straightforward. If there's any complexity, I think it will be in
+   managing state, i.e., is there already an active event. Not sure
+   exactly how that's going to look yet. Maybe the first thing I
+   should do is get reacquainted with the algorithm in R.
+
+   Went back to trying to understand monads. I sort of get it, but not
+   really. I don't think I will until I devote time to sitting down at
+   the REPL with an open notebook to work all of this out. I do *sort
+   of* understand the state monad, enough to pick an approach for the
+   implementation function. It's basically what I had already decided
+   on: the function will accept a hash-map containing state, and it
+   will return a vector of the result of the computation and the new
+   state.
+
+   All my detection function does is transform the signal to account
+   for the length of the tweet text, then compare the signal mean over
+   the previous 10 seconds to the threshold for detection. The
+   threshold is set as mean(old_window) + (10 * stdev(old_window)). On
+   detection, we go into alarm, and wait for the value to fall back
+   below the alarm threshold before downgrading.
+
+** <2015-05-25 Mon>
+   Picking up the detection algorithm again. But first, I'm disabling
+   evil-mode by default - can't take the seemingly random switching
+   back and forth.
+
+*** TODO Tooling
+    :PROPERTIES:
+    :tool:     emacs
+    :END:
+    I think it might have something to do with the temporary buffer -
+    maybe the switch-to-buffer advice doesn't get invoked when I close
+    a temporary buffer and go back to the main window. What I really
+    want is never to have evil-mode and paredit enabled at the same
+    time, and for the cursor to have the appropriate shape, size, and
+    color depending on the active mode.
+
+*** Detection Algorithm
+    I know I'm going to have to refactor a little to get the state
+    passed into the detection algorithm each time. I think that part
+    will be easy, so I'm going to focus first on getting the
+    detection algorithm working independent of the main loop. I need
+    to put some thought into how to test this. I've got the
+    end-to-end test case, but it feels like I need something simpler
+    to develop against...
+
+** <2015-05-28 Thu>
+   Found the bug in my detection algorithm. I was using partition-by
+   on the timestamp key to bucketize a sequence of tweets. This
+   didn't work because the tweets weren't sorted, so I ended up with
+   more buckets than expected.
+
+   Also created a function to plot the signal and store it to disk
+   given a sequence of tweets. Still not sure why incanter's view
+   function doesn't work, but the saving to /tmp and opening in
+   terminal isn't bothering me too much, yet. If it gets annoying I
+   could even work around by creating an elisp function to open the
+   resulting file from eshell.
+
+   Up next: refactor the main loop. There's some work needed to
+   capture the tweet buffer and the state of the detection algorithm
+   and feed it back in on each iteration. Tests will need to be
+   updated as well. Really starting to question the value of tests
+   that make assertions about the presence or non-presence of calls
+   in functional languages.
+
+   Open question: Do Midje tests using prerequisites add value once
+   you start implementing the mocked function? Or do they just slow
+   down development and refactoring?
+
+   Although, now that I think about it... I think they do add some
+   value, at least. If function A depends on function B, and the
+   signature of function B changes, when I have a test for function A
+   that mocks function B, I know right away that the failure lies in
+   the fact that the expected (incorrectly mocked) call was never made
+   to function B.
+
+   On the other hand, wouldn't a stack-trace to the actual call to B
+   tell me roughly the same thing, and free me from having to update
+   the tests for function A when I change function B.
+
+   I guess the advantage of mocking in a functional language is the
+   same advantage of mocking classes in the OO world. If my test
+   starts failing because module or function B is incorrect, my tests
+   for module or function A, which depends on B, will still pass, and
+   the failure is isolated to module or function B, and therefore
+   easily traceable. The difference is that in a strongly typed
+   environment, changing the interface of B would break A's tests,
+   whereas in a dynamically typed environment, I can change the
+   interface of B without touching any of A's tests, provided that I
+   haven't mocked out the calls to B in A's tests.
+
+   Will have to revisit this as I garner more practical experience
+   with Clojure testing. This could result in a potentially
+   interesting (well, to me at least) blog post.
+
+** <2015-06-04 Thu>
+   Got a half-hour or so. Will go back to refactoring the main loop
+   and the loop-step.
+
+   Update: Got some good refactoring done. The main loop and the loop
+   step and all their tests are now updated to use a td-detection
+   function that retuns an alarm value, a tweet buffer, and a list of
+   detections. All the tests seem to be passing, so I think the next
+   step is to start debugging the detection function via the
+   acceptance test. This will probably take some infrastructural work
+   to visualize what's going on over time in the detection functions,
+   as right now it's mostly a black-box.
