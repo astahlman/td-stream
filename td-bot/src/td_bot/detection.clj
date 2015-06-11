@@ -1,5 +1,6 @@
 (ns td-bot.detection
   (:use [midje.sweet]
+        [td-bot.tweet :only [is-retweet?]]
         [incanter.charts :only [line-chart]]))
 
 (defn- mean [xs]
@@ -29,7 +30,7 @@
         first (apply min (map :t tweets))]
     (>= (- latest first) (+ old-sz new-sz))))
 
-;; TODO: Don't need to do this twice (see enough?)
+;; TODO: Shouldn't need to do this twice (see enough?)
 (defn- partition-window [tweets]
   "Split the tweet buffer in two"
   (let [old-sz (* 1000 90)
@@ -59,11 +60,13 @@
       (partition-by #(Math/ceil (/ (:t %) sig-interval)))))
 
 (defn- td-signal [tweets]
-  (let [intervals (bucketize tweets)
-        sig-val (fn [interval]
-                  (/ (count (filter #(is-td? (:text %)) interval))
-                     (mean (map #(count (:text %)) interval))))]
-    (map sig-val intervals)))
+  (let [buckets (->> tweets
+                       (remove is-retweet?)
+                       (bucketize))
+        sig-val (fn [bucket]
+                  (/ (count (filter #(is-td? (:text %)) bucket))
+                     (mean (map #(count (:text %)) bucket))))]
+    (map sig-val buckets)))
 
 (facts "About how we generate a signal from a stream of tweets"
        (let [tweets [{:t 1000 :text "swish"}
@@ -102,10 +105,6 @@
 (facts "About our threshold calculation"
        (fact (thresh [2 4 4 4 5 5 7 9]) => 25.0)
        (fact (thresh [10 29 38 25 31 14 17 28]) => (roughly 112.882)))
-
-(defn- tweets-since [t tweets]
-  "Take tweets at-or-after t"
-  (filter #(>= (:t %) t) tweets))
 
 (defn detect-tds [{:keys [alarm-val tweet-buff]}]
   "Detect touchdowns given a buffer of tweets and the current state

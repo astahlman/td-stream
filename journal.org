@@ -5,13 +5,19 @@
    2. [X] Setup a file-based tweet stream
    3. [X] Score the output of the bot
 
-** TODO Implement detection algorithm
+** DONE Implement detection algorithm
 
-** TODO Incorporate scorer identity into scores
+** DONE Incorporate scorer identity into scores
 
-** TODO Implement identification algorithm
-
+** DONE Implement identification algorithm
+** TODO Gather metrics around algorithm speed
+*** TODO Optimize the file-based stream, if necessary
+** TODO Run against full test set
+** TODO Programatically fetch rosters
 ** TODO Connect the bot to Twitter
+
+*** TODO Tweet touchdown alerts, too?
+** TODO Web interface to visualize signal?
 
 * Journal
 
@@ -347,3 +353,60 @@
    acceptance test. This will probably take some infrastructural work
    to visualize what's going on over time in the detection functions,
    as right now it's mostly a black-box.
+
+** <2015-06-08 Mon>
+   Did a lot over the weekend but didn't bother to write about it.
+   Let's see if I can summarize...
+
+   Touchdown detection is now working. I don't even really remember
+   what I changed now, but I think I was incorrectly passing around
+   the touchdown buffer. Once I wired it together correctly in the
+   loop step, everything started working... I guess. Whatever it was,
+   it suddenly just started working and it was really exciting. I
+   think it's got two false positives and no false negatives. IIRC, I
+   think I can fix one of the false positives by filtering out
+   retweets before feeding the detection algorithm. The other false
+   positive is a legitimate spike when everyone thought the Eagles
+   scored but it got reviewed.
+
+   Now I'm working on player identification. I brought in a
+   dependency on a Clojure lib that wraps the Lucene text tokenizer.
+   It's probably a dependency I could live without if I ever need to
+   slim down, but I'm not that interested in implementing a tokenizer
+   right now.
+
+   Currently struggling over a top-down development style question. I
+   mocked out a function's dependencies, then I implemented them.
+   Should I remove the mocks? Now that I type this out, I remember
+   asking this exact same question not long ago. This time the answer
+   seems like an obvious yes, because the larger function isn't that
+   complex. (It's just the player identification algorithm.) If I
+   break something in the wiring, it shouldn't be that hard to figure
+   out where. In the case of the function that I considered last
+   week, (the guts of the bot, whose main loop and loop step
+   functions are (overly) complex), I think it probably makes sense
+   to keep at least some of the mocks around to give a clear error
+   message when I break something. This leads to another question
+   though - should I write a second version of the test which ignores
+   the mocks and delegates to the actual function? If not, then I
+   have no end-to-end test. If so, then... yuck. Wonder if a macro
+   could solve this... Something that accepts a test with provided
+   forms and generates a form with the provided and a form with the
+   provided stripped... More fuel for a blog post.
+
+   I'm not deleting the preceding paragraph for the sake of the
+   narrative, but I did just realize what was wrong with it: I forgot
+   about metaconstants. If I had looked at the test in question a
+   little closer, I would have noticed that the inputs to the function
+   under test were metaconstants, not hard-coded values. So running
+   this test without the mocks wouldn't have even been possible.
+   Still, the larger question remains. Do tests that rely on mocks
+   provide any value once the mocks have real implementations? My gut
+   says yes, but I think there's probably a continuum of utility and
+   a lot of my smaller functions are falling on the "useless" side of
+   the cutoff...
+   
+** <2015-06-10 Wed>
+   
+   Things work! Player and team identification is scoring 100% on the
+   Cowboys-Eagles dataset.

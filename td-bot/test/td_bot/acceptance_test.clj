@@ -1,10 +1,8 @@
 (ns td-bot.acceptance-test
   (:use midje.sweet
-        [td-bot.test-data :only [touchdowns]])
-  (:require [td-bot.bot :as bot]
-            [td-bot.detection :as detect]
-            [clojure.java.io :as io]
-            [clojure.data.json :as json]))
+        [td-bot.test-data :only [touchdowns]]
+        [td-bot.tweet :only [file-stream]])
+  (:require [td-bot.bot :as bot]))
 
 (defn precision [{:keys [true-pos false-pos]}]
   (let [denom (+ true-pos false-pos)]
@@ -61,7 +59,6 @@
                   :true-pos 0
                   :false-pos 0}) => #(Double/isNaN %))
 
-
 (fact "We can calculate the recall"
       (recall {:true-pos 2
                :false-pos anything
@@ -71,119 +68,83 @@
   "Increments one-second on every tick, or starts at beginning of DAL-PHI game"
   (+ 1000 (or last-tick 1418606922542)))
 
-;; Put our broadcasted touchdowns here
-(def results (atom ()))
-
-(defn save-result [tds]
-  (map bot/simple-alert tds)
-  (swap! results conj tds))
-
-(defn json->tweet [raw-json]
-  (->
-   raw-json
-   (json/read-str :key-fn keyword)
-   (clojure.set/rename-keys {:timestamp_ms :t})
-   (utilize.map/update :t read-string)))
-
-(defn file-stream [file]
-  "Return a function of one-argument (now) which consumes and returns
-   all the tweets up until time 'now'. File stream is closed once EOF
-   is reached and nil is returned."
-  (let [rdr (io/reader file)
-        closed (atom false)
-        buff (atom [])
-        first-pending (first @buff)
-        continue? (fn [tweet-t t] (<= tweet-t t))]
-    (fn [now]
-      (let [first-pending (first @buff)]
-        (if (and
-             (not (nil? first-pending))
-             (< now (:t first-pending)))
-          []
-          (loop [ret @buff]
-            (let [line (try (.readLine rdr) (catch Exception e))
-                  tweet (and (not (nil? line)) (json->tweet line))]
-              (cond
-                @closed nil
-                (not tweet) (do
-                             (println "closing...")
-                             (.close rdr)
-                             (reset! closed true)
-                             ret)
-                (not (continue? (:t tweet) now)) (do
-                                                  (reset! buff [tweet])
-                                                  ret)
-                :else (recur (conj ret tweet))))))))))
-
-(defn stupid-td-detector [tweet-window]
-  "1/1000 chance of identifying a touchdown at the beginning of the window"
-  (let [is-td? #(zero? (rand-int 100000))]
-    (filter
-     (complement nil?)
-     (map #(if (is-td?) (:t %) nil) tweet-window))))
-
-(defn stupid-scorer-ider [post-td-tweets]
-  {:player "demarco murray"
-   :team "dallas cowboys"})
-
-(def test-file "/Users/astahlman/Documents/Programming/ML/td-stream/data/json/raw/tweets.2014-12-15.01.json")
+(def ^:private test-file "data/cowboys-eagles.txt")
 
 (defn test-bot []
-  (conj (bot/system) {:id-hook save-result
-                      :clock test-clock
-                      :tweet-stream (file-stream test-file)
-                      :td-detector detect/detect-tds
-                      :scorer-ider stupid-scorer-ider}))
+  (conj (bot/system) {:clock test-clock
+                      :tweet-stream (file-stream test-file)}))
 
 (declare false-neg-and-true-pos)
 
 (defn label-detections [det tds]
-  (println (str "Detections: " (into [] det)))
-  (let [det (map :identified-at det)
-        tds (map :t tds)
-        r (false-neg-and-true-pos det tds)
-        tp (into #{} (map #(+ (:t %) (:latency %)) (:true-pos r)))]
+  (let [r (false-neg-and-true-pos det tds)
+        tp (into #{} (map :identified-at (:true-pos r)))
+        fp (filter (fn [d] (not (contains? tp (:identified-at d)))) det)]
     (utilize.map/map-vals
-     (conj r {:false-pos (map (partial hash-map :t)
-                              (clojure.set/difference (set det) tp))})
+     (conj r {:false-pos (map #(clojure.set/rename-keys %
+                                                        {:team :identified-team
+                                                         :player :identified-player}) fp)})
      #(seq (sort-by :t %)))))
 
 (defn false-neg-and-true-pos [det tds]
-  (println (str "Detections: " (into [] det) "\nTds: " (into [] tds)))
   (letfn [(match [d td]
-            (let [diff (- d td)]
-                 (and (pos? diff) (<= diff 30000))))]
+            (let [diff (- (:identified-at d) (:t td))]
+                 (and (pos? diff) (<= diff 30000))))
+          (merge-det-and-td [d td]
+            (-> td
+                (merge (clojure.set/rename-keys d {:team :identified-team
+                                                   :player :identified-player}))))]
     (reduce (fn [r td]
               (if-let [m (first (filter #(match % td) det))]
-                (update-in r [:true-pos] conj {:t td
-                                               :latency (- m td)})
-                (update-in r [:false-neg] conj {:t td})))
+                (update-in r [:true-pos] conj (merge-det-and-td m td))
+                (update-in r [:false-neg] conj td)))
             {:true-pos nil :false-neg nil} tds)))
 
 (fact "We count touchdowns as detected if they happened in the previous 30 seconds"
-      (let [detected [{:identified-at 7000} ;;; true positive
-                      {:identified-at 41000} ;;; false positive
-                      {:identified-at 65000} ;;; true positive
-                      {:identified-at 66000}] ;;; false positive
-            truth [{:t 2000} ;;; latency = 5000
-                   {:t 10000} ;;; false negative
-                   {:t 60000}]] ;;; latency = 5000
-        (label-detections detected truth)) => {:true-pos [{:t 2000 :latency 5000}
-                                                          {:t 60000 :latency 5000}]
-                                               :false-pos [{:t 41000}
-                                                           {:t 66000}]
-                                               :false-neg [{:t 10000}]})
+      (let [detected [{:identified-at 7000 :player "foo" :team "bar"} ;;; true positive
+                      {:identified-at 41000 :player "bar" :team "baz"} ;;; false positive
+                      {:identified-at 65000 :player "baz" :team "buzz"} ;;; true positive
+                      {:identified-at 66000 :player "buzz" :team "bop"}] ;;; false positive
+            truth [{:t 2000
+                    :player "_foo"
+                    :team "_bar"} ;;; latency = 5000
+                   {:t 10000
+                    :player "_foo"
+                    :team "_bar"} ;;; false negative
+                   {:t 60000
+                    :player "_baz"
+                    :team "_buzz"}]] ;;; latency = 5000
+        (label-detections detected truth)) => {:true-pos [{:t 2000
+                                                           :identified-at 7000
+                                                           :player "_foo" :team "_bar"
+                                                           :identified-player "foo"
+                                                           :identified-team "bar"}
+                                                          {:t 60000
+                                                           :identified-at 65000
+                                                           :player "_baz"
+                                                           :team "_buzz"
+                                                           :identified-player "baz"
+                                                           :identified-team "buzz"}]
+                                               :false-pos [{:identified-at 41000
+                                                            :identified-player "bar"
+                                                            :identified-team "baz"}
+                                                           {:identified-at 66000
+                                                            :identified-player "buzz"
+                                                            :identified-team "bop"}]
+                                               :false-neg [{:t 10000
+                                                            :player "_foo"
+                                                            :team "_bar"}]})
 
 (fact "We don't associate multiple alerts with the same touchdown"
       (let [detected [{:identified-at 1000}
                       {:identified-at 2000}]
             truth [{:t 0}]]
-        (label-detections detected truth) => {:true-pos [{:t 0 :latency 1000}]
-                                              :false-pos [{:t 2000}]
+        (label-detections detected truth) => {:true-pos [{:t 0 :identified-at 1000}]
+                                              :false-pos [{:identified-at 2000}]
                                               :false-neg nil}))
 
 (defn score-output [out]
-  "out has keys :true-pos, :false-pos, and :false-neg"
+  "Assigns an F-1 score to labelled detections"
   (let [counts (reduce (fn [m [k v]]
                          (assoc m k (count v)))
                        {} out)]
@@ -203,42 +164,36 @@
                                         {:t 2}]
                             :false-pos [{:t 1}]}) => 2/3))
 
-(defn- score-player-id [ground-truth detections]
+(defn- score-player-id [labelled-results]
   "Return the ratio of correct identifications for player and team"
-  nil)
+  (let [tp (:true-pos labelled-results)]
+    (letfn [(match? [k1 k2]
+              #(apply = ((juxt k1 k2) %)))]
+      (hash-map :player-score (/ (count
+                                  (filter (match? :player :identified-player) tp))
+                                 (count tp))
+                :team-score (/ (count
+                                (filter (match? :team :identified-team) tp))
+                               (count tp))))))
 
 (facts "The identification function scores along both the player
         and team dimensions"
-       (let [ground-truth [{:team "dallas cowboys"
-                            :player "demarco murray"
-                            :t 1000}
-                           {:team "pittsburgh steelers"
-                            :player "antonio brown"
-                            :t 7000}
-                           {:team "seattle seahawks"
-                            :player "marshawn lynch"
-                            :t 19000}]
-             detections [{:team "dallas cowboys"
-                          :player "dez bryant"
-                          :detected-at 1500}
-                         {:team "miami dolphins"
-                          :player "antonio brown"
-                          :detected-at 15000}
-                         {:team "seattle seahawks"
-                          :player "marshawn lynch"
-                          :detected-at 21000}]]
-         (score-player-id ground-truth detections) => {:player-score (/ 2 3)
-                                                       :team-score (/ 2 3)}))
+       (let [labelled-results {:true-pos [{:team "dallas cowboys"
+                                           :identified-team "dallas cowboys"
+                                           :player "demarco murray"
+                                           :identified-player "dez bryant"}
+                                          {:team "pittsburgh steelers"
+                                           :identified-team "pittsburgh steelers"
+                                           :player "antonio brown"
+                                           :identified-player "antonio brown"}
+                                          {:team "seattle seahawks"
+                                           :identified-team "miami dolphins"
+                                           :player "marshawn lynch"
+                                           :identified-player "marshawn lynch"}]}]
+         (score-player-id labelled-results) => {:player-score (/ 2 3)
+                                                :team-score (/ 2 3)}))
 
-
-(facts "Our touchdown scores 'pretty well' on our test data set from
-        the Cowboys vs. Eagles game"
-       (let [results (run)]
-         (:f1-score results) => (partial <= (/ 8 9))))
-
-(def ^:private test-file "/Users/astahlman/Documents/Programming/ML/td-stream/td-bot/data/demarco-first-td.txt")
-
-(defn run []
+(defn run-test []
   (let [detections (atom ())
         save-detection (fn [td] (swap! detections conj td))
         bot (assoc (test-bot) :id-hook save-detection)
@@ -250,6 +205,14 @@
       (println (str "Results: " results))
       (assoc results
              :detections raw-detections
-             :f1-score (score-output results)))))
+             :f1-score (score-output results)
+             :player-id-score (score-player-id results)))))
 
-
+(facts "Our touchdown scores 'pretty well' on our test data set from
+        the Cowboys vs. Eagles game"
+       (let [results (run-test)]
+         (fact "We're pretty good at detecting touchdowns"
+               (:f1-score results) => (partial <= (/ 8 9)))
+         (fact "But given a touchdown, we're really good at figuring out who scored"
+               (:player-id-score results) => {:player-score 1
+                                              :team-score 1})))
