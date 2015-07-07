@@ -5,7 +5,8 @@
              :refer [>! <! >!! <!! go chan buffer close! thread
                      alts! alts!! timeout sliding-buffer]]  ;; Trim...
             [td-bot.detection :as detect]
-            [td-bot.identification :as identify]))
+            [td-bot.identification :as identify]
+            [td-bot.metrics :as metric]))
 
 (declare simple-alert tweets-since)
 
@@ -16,7 +17,8 @@
    :clock (fn [_ _] (System/currentTimeMillis))
    :tweet-stream nil
    :td-detector detect/detect-tds
-   :scorer-ider identify/identify-scorer))
+   :scorer-ider identify/identify-scorer
+   :metrics (atom {})))
 
 (defn identify-scorer [tweets happened-at scorer-ider]
   "Identify the scoring team and player given a tweet buffer and the 
@@ -26,20 +28,20 @@
        (map :text)
        (scorer-ider)))
 
-(defn loop-step [now tweets pending-id & {:keys [td-detector alarm-val scorer-ider id-hook]}]
+(defn loop-step [now tweets pending-id & {:keys [td-detector alarm-val scorer-ider id-hook metrics]}]
   "Takes the current time, a list of tweets, and a buffer of touchdowns
    pending identification, and mark any new touchdowns
    occurring in the last 30 seconds as pending identification. Mark any
    pending touchdowns as identified if their team and player can be identified."
-  (let [detection-results (td-detector {:alarm-val alarm-val
-                                        :tweet-buff tweets})
+  (let [detection-results (metric/timed metrics :detection (td-detector {:alarm-val alarm-val
+                                                                         :tweet-buff tweets}))
         tweet-buff (:tweet-buff detection-results)
         tds (map #(hash-map :happened-at % :detected-at now) (:detections detection-results))
         pending-id (concat tds pending-id)
         maybe-identified (map #(conj % 
-                                     (identify-scorer tweet-buff
-                                                      (:happened-at %)
-                                                      scorer-ider))
+                                     (metric/timed metrics :identification (identify-scorer tweet-buff
+                                                                                            (:happened-at %)
+                                                                                            scorer-ider)))
                               pending-id)
         identified? #(contains? % :player)
         got-identified (filter identified? maybe-identified)
@@ -67,7 +69,7 @@
   "Do this constantly until continue? returns false or we run out of tweets"
   ([continue?]
    (main-loop continue? (system)))
-  ([continue? {:keys [tweet-stream td-detector scorer-ider id-hook clock]}]
+  ([continue? {:keys [tweet-stream td-detector scorer-ider id-hook clock metrics]}]
    (loop [pending nil
           broadcasted 0
           tweet-buff nil
@@ -75,7 +77,7 @@
           last-time nil
           alarm-val nil]
      (let [now (clock i last-time)
-           new-tweets (tweet-stream now)]
+           new-tweets (metric/timed metrics :read-tweets (tweet-stream now))]
        (if (and new-tweets (continue? i))
          (let [tweet-buff (concat tweet-buff new-tweets)
                results (loop-step
@@ -85,7 +87,8 @@
                         :td-detector td-detector
                         :alarm-val alarm-val
                         :scorer-ider scorer-ider
-                        :id-hook id-hook)
+                        :id-hook id-hook
+                        :metrics metrics)
                identified (:identified results)
                pending (:pending results)]
            (recur pending
@@ -96,4 +99,5 @@
                   (:alarm-val results)))
          {:broadcasted broadcasted
           :pending (count pending)})))))
+
 

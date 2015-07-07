@@ -42,3 +42,15 @@
                                                   (reset! buff [tweet])
                                                   ret)
                 :else (recur (conj ret tweet))))))))))
+
+(defn find-start-time [file]
+  "Return the timestamp of the first tweet in the file"
+  (let [rdr (io/reader file)
+        line (try (.readLine rdr) (catch Exception e) (finally (.close rdr)))
+        tweet (json->tweet line)]
+    (:t tweet)))
+
+(def ^:private dal-phi-file "data/cowboys-eagles.txt")
+
+(fact "We can get the start time of a stream"
+      (find-start-time dal-phi-file) => 1418606430585)

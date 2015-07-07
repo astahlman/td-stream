@@ -49,7 +49,71 @@
     {:player "chris polk"
      :team "philadelphia eagles"}
     {:player "darren sproles"
-     :team "philadelphia eagles"}])
+     :team "philadelphia eagles"}
+    {:player "andrew quarless"
+     :team "green bay packers"},
+    {:player "antonio brown"
+     :team "pittsburgh steelers"},
+    {:player "bernard pierce"
+     :team "baltimore ravens"},
+    {:player "crockett gillmore"
+     :team "baltimore ravens"},
+    {:player "danny amendola"
+     :team "new england patriots"},
+    {:player "darren fells"
+     :team "arizon cardinals"},
+    {:player "doug baldwin"
+     :team "seattle seahawks"},
+    {:player "fozzy whittaker"
+     :team "carolina panthers"},
+    {:player "garry gilliam"
+     :team "seattle seahawks"},
+    {:player "james develin"
+     :team "new england patriots"},
+    {:player "jermaine kearse"
+     :team "seattle seahawks"},
+    {:player "jonathan stewart"
+     :team "carolina panthers"},
+    {:player "justin forsett"
+     :team "baltimore ravens"},
+    {:player "kam chancellor"
+     :team "seattle seahawks"},
+    {:player "kamar aiken"
+     :team "baltimore ravens"},
+    {:player "kelvin benjamin"
+     :team "carolina panthers"},
+    {:player "legarrette blount"
+     :team "new england patriots"},
+    {:player "luke willson"
+     :team "seattle seahawks"},
+    {:player "marion grice"
+     :team "arizona cardinals"},
+    {:player "marshawn lynch"
+     :team "seattle seahawks"},
+    {:player "martavis bryant"
+     :team "pittsburgh steelers"},
+    {:player "nate solder"
+     :team "new england patriots"},
+    {:player "owen daniels"
+     :team "baltimore ravens"},
+    {:player "randall cobb"
+     :team "green bay packers"},
+    {:player "rob gronkowski"
+     :team "new england patriots"},
+    {:player "russell wilson"
+     :team "seattle seahawks"},
+    {:player "steve smith"
+     :team "carolina panthers"},
+    {:player "terrance williams"
+     :team "dallas cowboys"},
+    {:player "tom brady"
+     :team "new england patriots"},
+    {:player "torrey smith"
+     :team "baltimore ravens"},
+    {:player "tyler clutts"
+     :team "dallas cowboys"},
+    {:player "zurlon tipton"
+     :team "indianapolis colts"}])
 
 (def ^:private stop-words #{"td" "touchdown" "rt" "baby" "a" "an" "the" "and" "yeah"})
 

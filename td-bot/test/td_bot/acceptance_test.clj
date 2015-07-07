@@ -1,7 +1,7 @@
 (ns td-bot.acceptance-test
   (:use midje.sweet
-        [td-bot.test-data :only [touchdowns]]
-        [td-bot.tweet :only [file-stream]])
+        [td-bot.test-data :only [dal-phi-touchdowns ground-truth]]
+        [td-bot.tweet :only [file-stream find-start-time]])
   (:require [td-bot.bot :as bot]))
 
 (defn precision [{:keys [true-pos false-pos]}]
@@ -64,15 +64,24 @@
                :false-pos anything
                :false-neg 3}) => 2/5)
 
-(defn test-clock [_ last-tick]
-  "Increments one-second on every tick, or starts at beginning of DAL-PHI game"
-  (+ 1000 (or last-tick 1418606922542)))
+(defn test-clock-with-start [start]
+  "Return a clock that increments one-second on every tick with the given start time"
+  (fn [_ last-t]
+    (+ 1000 (or last-t start))))
 
-(def ^:private test-file "data/cowboys-eagles.txt")
+(defn test-clock []
+  "Starts at beginning of DAL-PHI game"
+  (test-clock-with-start 1418606922542))
 
-(defn test-bot []
-  (conj (bot/system) {:clock test-clock
-                      :tweet-stream (file-stream test-file)}))
+;(def ^:private dal-phi-file "data/cowboys-eagles.txt")
+(def ^:private dal-phi-file "data/raw/tweets.2015-01-11.00.json")
+(def ^:private car-ari-file "data/raw/tweets.2015-01-03.21.json")
+
+(defn test-bot
+  ([] (test-bot dal-phi-file))
+  ([file]
+   (conj (bot/system) {:clock test-clock
+                       :tweet-stream (file-stream file)})))
 
 (declare false-neg-and-true-pos)
 
@@ -193,26 +202,51 @@
          (score-player-id labelled-results) => {:player-score (/ 2 3)
                                                 :team-score (/ 2 3)}))
 
-(defn run-test []
-  (let [detections (atom ())
-        save-detection (fn [td] (swap! detections conj td))
-        bot (assoc (test-bot) :id-hook save-detection)
-        indefinitely (fn [_] true)]
-    (bot/main-loop indefinitely bot)
-    (let [raw-detections @detections
-          results (label-detections raw-detections touchdowns)]
-      (println (str "Raw detections:" raw-detections))
-      (println (str "Results: " results))
-      (assoc results
-             :detections raw-detections
-             :f1-score (score-output results)
-             :player-id-score (score-player-id results)))))
+(defn run-test
+  ([true-tds] (run-test true-tds (test-bot)))
+  ([true-tds bot]
+   (let [detections (atom ())
+         save-detection (fn [td] (swap! detections conj td))
+         bot (assoc bot :id-hook save-detection)
+         indefinitely (fn [_] true)]
+     (bot/main-loop indefinitely bot)
+     (let [raw-detections @detections
+           results (label-detections raw-detections true-tds)]
+       (println (str "Raw detections:" raw-detections))
+       (println (str "Results: " results))
+       (assoc results
+              :detections raw-detections
+              :f1-score (score-output results)
+              :player-id-score (score-player-id results))))))
 
-(facts "Our touchdown scores 'pretty well' on our test data set from
+(comment (facts "Our touchdown scores 'pretty well' on our test data set from
         the Cowboys vs. Eagles game"
-       (let [results (run-test)]
-         (fact "We're pretty good at detecting touchdowns"
-               (:f1-score results) => (partial <= (/ 8 9)))
-         (fact "But given a touchdown, we're really good at figuring out who scored"
-               (:player-id-score results) => {:player-score 1
-                                              :team-score 1})))
+                (let [results (run-test dal-phi-touchdowns)]
+                  (fact "We're pretty good at detecting touchdowns"
+                        (:f1-score results) => (partial <= (/ 8 9)))
+                  (fact "But given a touchdown, we're really good at figuring out who scored"
+                        (:player-id-score results) => {:player-score 1
+                                                       :team-score 1}))))
+
+(defn run-game [file]
+  (let [truth (filter #(= file (:file %)) ground-truth)
+        true-tds (map #(select-keys % [:t :player :team]) truth)
+        start-time (find-start-time file)
+        bot (assoc (test-bot file)
+                   :clock (test-clock-with-start start-time))]
+    (run-test true-tds bot)))
+
+(defn heavy-test []
+  "Run the bot against our entire test-set"
+  (let [games (partition-by :file ground-truth)
+        bots (map (fn [game]
+                    (let [file (:file (first game))
+                          start-time (find-start-time file)]
+                      (assoc (test-bot file)
+                             :clock (test-clock-with-start start-time)))) games)
+        ground-truth (map (fn [game]
+                            #(select-keys % [:t :player :team]) game)
+                          games)]
+    (pmap (fn [truth bot]
+            (run-test truth bot)) ground-truth bots)))
+

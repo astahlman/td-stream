@@ -3,7 +3,7 @@
         [td-bot.tweet :only [is-retweet?]]
         [incanter.charts :only [line-chart]]))
 
-(defn- mean [xs]
+(defn mean [xs]
      (/ (reduce + xs) (count xs)))
 
 (defn- std-dev [xs]
@@ -22,7 +22,7 @@
        (fact (std-dev [2 4 4 4 5 5 7 9]) => 2.0)
        (fact (std-dev [3 5 5 8 9 12]) => 3.0))
 
-(defn- enough? [tweets]
+(defn enough? [tweets]
   "We need 100 seconds worth of tweets"
   (let [old-sz (* 1000 90)
         new-sz (* 1000 10)
@@ -30,17 +30,33 @@
         first (apply min (map :t tweets))]
     (>= (- latest first) (+ old-sz new-sz))))
 
-;; TODO: Shouldn't need to do this twice (see enough?)
-(defn- partition-window [tweets]
+
+(defn most-recent-tweet-before [t tweets]
+  (let [delta (fn [tweet]
+               (- t (:t tweet)))]
+    (loop [best nil
+           [x & xs] tweets]
+      (cond
+        (not x) best
+        (not best) (recur x xs)
+        (and (pos? (delta x)) (< (delta x) (delta best))) (recur x xs)
+        :else (recur best xs)))))
+
+(defn partition-window [tweets]
   "Split the tweet buffer in two"
   (let [old-sz (* 1000 90)
         new-sz (* 1000 10)
         latest (apply max (map :t tweets))
+        old-window-start (- latest new-sz old-sz 1) ;; - 1 because
+        ;; window start is exclusive
+        old-window-end (- latest new-sz)
         make-win (fn [start end]
                    (filter #(and (> (:t %) start)
                                  (<= (:t %) end)) tweets))]
-    [(make-win (- latest new-sz old-sz) (- latest new-sz))
-     (make-win (- latest new-sz) latest)]))
+    [(cons
+      (most-recent-tweet-before old-window-start tweets)
+      (make-win old-window-start old-window-end))
+     (make-win old-window-end latest)]))
 
 (def ^:private sig-interval 5000)
 
