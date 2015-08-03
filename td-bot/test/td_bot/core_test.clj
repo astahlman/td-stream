@@ -1,6 +1,6 @@
 (ns td-bot.core-test
-  (:use midje.sweet
-        td-bot.core))
+  (:require [clojure.test :refer :all]))
 
-(fact "We can run Midje tests successfully!"
-      1 => 1)
+(deftest test-the-tests
+  (testing "We can run tests"
+    (is (= 1 1))))

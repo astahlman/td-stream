@@ -6,7 +6,8 @@
                      alts! alts!! timeout sliding-buffer]]  ;; Trim...
             [td-bot.detection :as detect]
             [td-bot.identification :as identify]
-            [td-bot.metrics :as metric]))
+            [td-bot.metrics :as metric]
+            [td-bot.logging :as logging]))
 
 (declare simple-alert tweets-since)
 
@@ -18,6 +19,12 @@
    :tweet-stream nil
    :td-detector detect/detect-tds
    :scorer-ider identify/identify-scorer
+   :log (logging/logger :info
+                        (java.io.File. (str "/tmp/"
+                                        (.format
+                                         (java.text.SimpleDateFormat. "yyyy-MM-dd.HH")
+                                         (java.util.Date.))
+                                        ".log")))
    :metrics (atom {})))
 
 (defn identify-scorer [tweets happened-at scorer-ider]
@@ -28,7 +35,7 @@
        (map :text)
        (scorer-ider)))
 
-(defn loop-step [now tweets pending-id & {:keys [td-detector alarm-val scorer-ider id-hook metrics]}]
+(defn loop-step [now tweets pending-id & {:keys [td-detector alarm-val scorer-ider id-hook metrics ]}]
   "Takes the current time, a list of tweets, and a buffer of touchdowns
    pending identification, and mark any new touchdowns
    occurring in the last 30 seconds as pending identification. Mark any
@@ -69,7 +76,8 @@
   "Do this constantly until continue? returns false or we run out of tweets"
   ([continue?]
    (main-loop continue? (system)))
-  ([continue? {:keys [tweet-stream td-detector scorer-ider id-hook clock metrics]}]
+  ([continue? {:keys [tweet-stream td-detector scorer-ider id-hook clock metrics log]}]
+   (logging/write! log :info "Starting bot...")
    (loop [pending nil
           broadcasted 0
           tweet-buff nil
@@ -88,7 +96,8 @@
                         :alarm-val alarm-val
                         :scorer-ider scorer-ider
                         :id-hook id-hook
-                        :metrics metrics)
+                        :metrics metrics
+                        :log log)
                identified (:identified results)
                pending (:pending results)]
            (recur pending
@@ -97,7 +106,9 @@
                   (inc i)
                   now
                   (:alarm-val results)))
-         {:broadcasted broadcasted
-          :pending (count pending)})))))
+         (do (logging/close! log)
+             {:broadcasted broadcasted
+              :pending (count pending)
+              :metrics metrics}))))))
 
 
