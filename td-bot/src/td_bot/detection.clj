@@ -1,11 +1,12 @@
 (ns td-bot.detection
-  (:require [clojure.test :refer [with-test is]])
+  (:require [clojure.test :refer [with-test is]]
+            [td-bot.metrics :as metric])
   (:use [td-bot.tweet :only [is-retweet?]]
         [incanter.charts :only [line-chart]]
         [incanter.core :only [save]]))
 
 (with-test
-  (defn- mean [xs]
+  (defn mean [xs]
     (/ (reduce + xs) (count xs)))
   (is (= 3 (mean [1 3 5])))
   (is (zero? (mean [0])))
@@ -13,7 +14,7 @@
   (is (= 4000 (mean [1000 2000 9000]))))
 
 (with-test
-  (defn- std-dev [xs]
+  (defn std-dev [xs]
     (let [n (count xs)
           m (mean xs)
           dev (map #(-> (- % m) (Math/pow 2)) xs)]
@@ -67,36 +68,45 @@
   (is (not (is-td? "Great TD by Demarco Murray")))
   (is (not (is-td? "Errbody in the club getting tipsy"))))
 
+(comment (defn- bucketize [tweets]
+           (->> tweets
+                (sort-by :t)
+                (partition-by #(Math/ceil (/ (:t %) sig-interval))))))
+
 (defn- bucketize [tweets]
-  (->> tweets
-      (sort-by :t)
-      (partition-by #(Math/ceil (/ (:t %) sig-interval)))))
+  (partition-by #(Math/ceil (/ (:t %) sig-interval)) tweets))
 
 (defn td-signal [tweets]
-  (let [buckets (->> tweets
-                       (remove is-retweet?)
-                       (bucketize))
+  ;(spit "/tmp/debugging" (str (into [] (map :text tweets)) "\n") :append true)
+  (let [tweets (metric/timed :force-tweets (into [] tweets))
+        without-rt (metric/timed :td-signal.without-rt (doall (remove #(is-retweet? (:text %)) tweets)))
+        buckets (metric/timed :td-signal.bucketize (doall (bucketize without-rt)))
         sig-val (fn [bucket]
                   (/ (count (filter #(is-td? (:text %)) bucket))
                      (mean (map #(count (:text %)) bucket))))]
-    (map sig-val buckets)))
+    (metric/timed :td-signal.sig-val (doall (map sig-val buckets)))))
 
 (defn- roughly? [x y]
   (< (Math/abs (- x y)) 0.001))
 
 (with-test
   (defn- thresh [signal]
-    (+ (mean signal) (* 10 (std-dev signal))))
+    (let [dev (metric/timed :std-dev (std-dev signal))
+          avg (metric/timed :mean (mean signal))]
+      (+ avg (* 10 dev))))
   (is (= 25.0 (thresh [2 4 4 4 5 5 7 9])))
   (is (roughly? 112.882 (thresh [10 29 38 25 31 14 17 28]))))
 
 (defn detect-tds [{:keys [alarm-val tweet-buff]}]
   "Detect touchdowns given a buffer of tweets and the current state
    Return the new state."
-  (if (enough? tweet-buff)
-    (let [[old-w new-w] (partition-window tweet-buff)
-          thresh-v (thresh (td-signal old-w))
-          cur-v (mean (td-signal new-w))]
+  (if (metric/timed :enough?
+                    (enough? tweet-buff))
+    (let [[old-w new-w] (metric/timed :partition-window (partition-window tweet-buff))
+          old-signal (metric/timed :signal.old-window (td-signal old-w))
+          new-signal (metric/timed :signal.new-window (td-signal new-w))
+          thresh-v (metric/timed :thresh (thresh old-signal))
+          cur-v (metric/timed :cur-v (mean new-signal))]
       (do (spit "/tmp/debug.txt"
                 (str "t: " (:t (first old-w))
                      ",alarm-val: " alarm-val

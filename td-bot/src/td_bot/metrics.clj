@@ -1,23 +1,27 @@
 (ns td-bot.metrics
-  (:use midje.sweet))
+  (:require [clojure.test :refer :all]))
 
-(defmacro timed [metrics label & body]
-  "Execute body and conj the execution time to an atomic hash-map, 
-   metrics, under the given label"
+(def ^{:dynamic true} *metrics* (atom {}))
+
+(defn reset-metrics! []
+  (reset! *metrics* {}))
+
+(defmacro timed
+  "Execute body and conj the execution time to the metrics with the given label"
+  [label & body]
   `(let [start# (System/currentTimeMillis)
          result# ~@body
          t# (- (System/currentTimeMillis) start#)]
-     (do (swap! ~metrics (fn [m#]
-                           (update-in m# [~label] #(conj % t#))))
+     (do (swap! *metrics* (fn [m#]
+                            (update-in m# [~label] #(conj % t#))))
          result#)))
 
-(facts "About how we time arbitrary operations"
-      (let [metrics (atom {})
-            result1 (timed metrics :test-op (do (Thread/sleep 100) (inc 42)))
-            result2 (timed metrics :test-op (do (Thread/sleep 20) :foo))]
-        (fact "We evaluate the body of a timed operation and return the result"
-              (list result1 result2) => '(43 :foo))
-        (fact "And we also append timing information to the metrics, front-to-back"
-              (count (:test-op @metrics)) => 2
-              (second (:test-op @metrics)) => (partial <= 100)
-              (first (:test-op @metrics)) => (partial <= 20))))
+(deftest timed-operations
+  (let [result1 (timed :test-op (do (Thread/sleep 100) (inc 42)))
+        result2 (timed :test-op (do (Thread/sleep 20) :foo))]
+    (testing "We evaluate the body of a timed operation and return the result"
+      (is (= '(43 :foo) (list result1 result2))))
+    (testing "And we also append timing information to the metrics, front-to-back"
+      (is (= 2 (count (:test-op (deref *metrics*)))))
+      (is (<= 100 (second (:test-op (deref *metrics*)))))
+      (is (<= 20 (first (:test-op (deref *metrics*))))))))

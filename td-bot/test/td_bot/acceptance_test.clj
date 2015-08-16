@@ -1,69 +1,41 @@
 (ns td-bot.acceptance-test
-  (:use midje.sweet
-        [td-bot.test-data :only [dal-phi-touchdowns ground-truth]]
+  (:use [td-bot.test-data :only [dal-phi-touchdowns ground-truth]]
         [td-bot.tweet :only [file-stream find-start-time]])
   (:require [td-bot.bot :as bot]
-            [td-bot.identification :as id]))
+            [td-bot.identification :as id]
+            [clojure.test :refer :all]))
 
-(defn precision [{:keys [true-pos false-pos]}]
-  (let [denom (+ true-pos false-pos)]
-    (if (zero? denom)
-      Double/NaN
-      (/ true-pos denom))))
+(with-test
+  (defn precision [{:keys [true-pos false-pos]}]
+    (let [denom (+ true-pos false-pos)]
+      (if (zero? denom)
+        Double/NaN
+        (/ true-pos denom))))
+  (is (= 3/4 (precision {:true-pos 3 :false-pos 1})))
+  (is (Double/isNaN (precision {:true-pos 0 :false-pos 0}))))
 
-(defn recall [{:keys [true-pos false-neg]}]
-  (/ true-pos (+ true-pos false-neg)))
+(with-test
+  (defn recall [{:keys [true-pos false-neg]}]
+    (/ true-pos (+ true-pos false-neg)))
+  (is (= 2/5 (recall {:true-pos 2 :false-neg 3}))))
 
-(defn f1-score [results]
-  "Results should have the following keys
+(with-test (defn f1-score [results]
+             "Results should have the following keys
    1. :true-pos
    2. :false-pos
    3. :false-neg"
-  (let [p (precision results)
-        r (recall results)]
-    (cond
-      (Double/isNaN p) 0
-      (zero? (+ p r)) 0
-      :else (* 2 (/ (* p r) (+ p r))))))
-
-(fact "We can calculate a perfect F1 score"
-      (f1-score ..results..) => 1
-      (provided
-       (precision ..results..) => 1
-       (recall ..results..) => 1))
-
-(fact "We can calculate an imperfect F1 score"
-      (f1-score ..results..) => 0.6
-      (provided
-       (precision ..results..) => 0.5
-       (recall ..results..) => 0.75))
-
-(facts "About what we do in exceptional cases"
-       (fact "We count an undefined F1 as 0"
-             (f1-score ..results..) => 0
-             (provided
-              (precision ..results..) => 0
-              (recall ..results..) => 0))
-       (fact "If precision is undefined, the F1 score is 0"
-             (f1-score ..results..) => 0
-             (provided
-              (precision ..results..) => Double/NaN
-              (recall ..results..) => 1)))
-
-(fact "We can calculate the precision"
-      (precision {:true-pos 3
-                  :false-pos 1
-                  :false-neg anything}) => 3/4)
-
-(fact "If there are no positives, precision is undefined"
-      (precision {:false-neg 10
-                  :true-pos 0
-                  :false-pos 0}) => #(Double/isNaN %))
-
-(fact "We can calculate the recall"
-      (recall {:true-pos 2
-               :false-pos anything
-               :false-neg 3}) => 2/5)
+             (let [p (precision results)
+                   r (recall results)]
+               (cond
+                 (Double/isNaN p) 0
+                 (zero? (+ p r)) 0
+                 :else (* 2 (/ (* p r) (+ p r))))))
+  (is (= 1 (f1-score {:true-pos 1 :false-pos 0 :false-neg 0})))
+  (is (= 0.6 (double (f1-score {:true-pos 3 :false-pos 3 :false-neg 1}))))
+  (testing "If precision and recall are 0, f-1 is 0"
+    (is (zero? (f1-score {:true-pos 0 :false-pos 10 :false-neg 10}))))
+  (testing "If precision is undefined, f-1 is 0"
+    (is (zero? (f1-score {:true-pos 0 :false-pos 0 :false-neg 10})))))
 
 (defn test-clock-with-start [start]
   "Return a clock that increments one-second on every tick with the given start time"
@@ -110,48 +82,52 @@
                 (update-in r [:false-neg] conj td)))
             {:true-pos nil :false-neg nil} tds)))
 
-(fact "We count touchdowns as detected if they happened in the previous 30 seconds"
-      (let [detected [{:identified-at 7000 :player "foo" :team "bar"} ;;; true positive
-                      {:identified-at 41000 :player "bar" :team "baz"} ;;; false positive
-                      {:identified-at 65000 :player "baz" :team "buzz"} ;;; true positive
-                      {:identified-at 66000 :player "buzz" :team "bop"}] ;;; false positive
-            truth [{:t 2000
-                    :player "_foo"
-                    :team "_bar"} ;;; latency = 5000
-                   {:t 10000
-                    :player "_foo"
-                    :team "_bar"} ;;; false negative
-                   {:t 60000
-                    :player "_baz"
-                    :team "_buzz"}]] ;;; latency = 5000
-        (label-detections detected truth)) => {:true-pos [{:t 2000
-                                                           :identified-at 7000
-                                                           :player "_foo" :team "_bar"
-                                                           :identified-player "foo"
-                                                           :identified-team "bar"}
-                                                          {:t 60000
-                                                           :identified-at 65000
-                                                           :player "_baz"
-                                                           :team "_buzz"
-                                                           :identified-player "baz"
-                                                           :identified-team "buzz"}]
-                                               :false-pos [{:identified-at 41000
-                                                            :identified-player "bar"
-                                                            :identified-team "baz"}
-                                                           {:identified-at 66000
-                                                            :identified-player "buzz"
-                                                            :identified-team "bop"}]
-                                               :false-neg [{:t 10000
-                                                            :player "_foo"
-                                                            :team "_bar"}]})
+(deftest label-detections-test
+  (testing "We count touchdowns as detected if they happened in the previous 30 seconds"
+    (let [detected [{:identified-at 7000 :player "foo" :team "bar"} ;;; true positive
+                    {:identified-at 41000 :player "bar" :team "baz"} ;;; false positive
+                    {:identified-at 65000 :player "baz" :team "buzz"} ;;; true positive
+                    {:identified-at 66000 :player "buzz" :team "bop"}] ;;; false positive
+          truth [{:t 2000
+                  :player "_foo"
+                  :team "_bar"} ;;; latency = 5000
+                 {:t 10000
+                  :player "_foo"
+                  :team "_bar"} ;;; false negative
+                 {:t 60000
+                  :player "_baz"
+                  :team "_buzz"}]] ;;; latency = 5000
+      (is (= {:true-pos [{:t 2000
+                          :identified-at 7000
+                          :player "_foo" :team "_bar"
+                          :identified-player "foo"
+                          :identified-team "bar"}
+                         {:t 60000
+                          :identified-at 65000
+                          :player "_baz"
+                          :team "_buzz"
+                          :identified-player "baz"
+                          :identified-team "buzz"}]
+              :false-pos [{:identified-at 41000
+                           :identified-player "bar"
+                           :identified-team "baz"}
+                          {:identified-at 66000
+                           :identified-player "buzz"
+                           :identified-team "bop"}]
+              :false-neg [{:t 10000
+                           :player "_foo"
+                           :team "_bar"}]}
+             (label-detections detected truth))))))
 
-(fact "We don't associate multiple alerts with the same touchdown"
-      (let [detected [{:identified-at 1000}
-                      {:identified-at 2000}]
-            truth [{:t 0}]]
-        (label-detections detected truth) => {:true-pos [{:t 0 :identified-at 1000}]
-                                              :false-pos [{:identified-at 2000}]
-                                              :false-neg nil}))
+(deftest deduping-alerts
+  (testing "We don't associate multiple alerts with the same touchdown"
+    (let [detected [{:identified-at 1000}
+                    {:identified-at 2000}]
+          truth [{:t 0}]]
+      (is (= {:true-pos [{:t 0 :identified-at 1000}]
+              :false-pos [{:identified-at 2000}]
+              :false-neg nil}
+             (label-detections detected truth))))))
 
 (defn score-output [out]
   "Assigns an F-1 score to labelled detections"
@@ -160,19 +136,20 @@
                        {} out)]
     (f1-score counts)))
 
-(facts "About how we score labelled results"
-       (fact "A perfect bot results in a perfect score"
-             (score-output {:true-pos [{:t 1000 :latency 1000}
+
+(deftest scoring-output
+  (testing "A perfect bot results in a perfect score"
+    (is (= 1 (score-output {:true-pos [{:t 1000 :latency 1000}
                                        {:t 2000 :latency 1000}]
                             :false-pos nil
-                            :false-neg nil}) => 1)
-       (fact "The timings of the detections don't matter, only count of each label"
-             (score-output {:true-pos [{:t 1 :latency 2}
-                                       {:t 2 :latency 2}
-                                       {:t 3 :latency 2}]
-                            :false-neg [{:t 1}
-                                        {:t 2}]
-                            :false-pos [{:t 1}]}) => 2/3))
+                            :false-neg nil}))))
+  (testing "The timings of the detections don't matter, only count of each lambel"
+    (is (= 2/3 (score-output {:true-pos [{:t 1 :latency 2}
+                                         {:t 2 :latency 2}
+                                         {:t 3 :latency 2}]
+                              :false-neg [{:t 1}
+                                          {:t 2}]
+                              :false-pos [{:t 1}]})))))
 
 (defn- score-player-id [labelled-results]
   "Return the ratio of correct identifications for player and team"
@@ -186,22 +163,23 @@
                                 (filter (match? :team :identified-team) tp))
                                (count tp))))))
 
-(facts "The identification function scores along both the player
-        and team dimensions"
-       (let [labelled-results {:true-pos [{:team "dallas cowboys"
-                                           :identified-team "dallas cowboys"
-                                           :player "demarco murray"
-                                           :identified-player "dez bryant"}
-                                          {:team "pittsburgh steelers"
-                                           :identified-team "pittsburgh steelers"
-                                           :player "antonio brown"
-                                           :identified-player "antonio brown"}
-                                          {:team "seattle seahawks"
-                                           :identified-team "miami dolphins"
-                                           :player "marshawn lynch"
-                                           :identified-player "marshawn lynch"}]}]
-         (score-player-id labelled-results) => {:player-score (/ 2 3)
-                                                :team-score (/ 2 3)}))
+(deftest identification
+  (testing "The identification function scores along both the player and team dimensions"
+    (let [labelled-results {:true-pos [{:team "dallas cowboys"
+                                        :identified-team "dallas cowboys"
+                                        :player "demarco murray"
+                                        :identified-player "dez bryant"}
+                                       {:team "pittsburgh steelers"
+                                        :identified-team "pittsburgh steelers"
+                                        :player "antonio brown"
+                                        :identified-player "antonio brown"}
+                                       {:team "seattle seahawks"
+                                        :identified-team "miami dolphins"
+                                        :player "marshawn lynch"
+                                        :identified-player "marshawn lynch"}]}]
+      (is (= {:player-score (/ 2 3)
+              :team-score (/ 2 3)}
+             (score-player-id labelled-results))))))
 
 (defn run-test
   ([true-tds]
@@ -232,14 +210,15 @@
                    :clock (test-clock-with-start start-time))]
     (run-test true-tds bot)))
 
-(facts "Our touchdown scores 'pretty well' on our test data set from
+(comment
+  (deftest cowboys-eagles-game
+    (testing "Our touchdown scores 'pretty well' on our test data set from
         the Cowboys vs. Eagles game"
-       (let [results (run-game dal-phi-file)]
-         (fact "We're pretty good at detecting touchdowns"
-               (:f1-score results) => (partial <= (/ 8 9)))
-         (fact "But given a touchdown, we're really good at figuring out who scored"
-               (:player-id-score results) => {:player-score 1
-                                              :team-score 1})))
+      (let [results (run-game dal-phi-file)]
+        (is (>= 8/9 (:f1-score results)))
+        (is (= {:player-score 1
+                :team-score 1}
+               (:player-id-score results)))))))
 
 (defn run-entire-test-set []
   "Run the bot against our entire test-set"

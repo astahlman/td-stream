@@ -1,22 +1,21 @@
 (ns td-bot.identification
-  (:use [midje.sweet]
-        [td-bot.tweet :only [is-retweet?]])
+  (:use [td-bot.tweet :only [is-retweet?]])
   (:require [clojure.data.json :as json]
             [clj-tokenizer.core :as tokenize]
             [clojure.data.csv :as csv]
-            [clojure.java.io :as io]))
+            [clojure.java.io :as io]
+            [clojure.test :refer :all]))
 
 (defn- read-csv [file]
   (with-open [in-file (io/reader file)]
     (doall
      (csv/read-csv in-file))))
 
-(defn- normalize [s]
-  (.toLowerCase (clojure.string/replace s #"[\.\,]" "")))
-
-(fact "We remove commas and spaces from player and team names"
-      (normalize "St. Louis Rams") => "st louis rams"
-      (normalize "Odell Beckham, Jr.") => "odell beckham jr")
+(with-test
+  (defn- normalize [s]
+    (.toLowerCase (clojure.string/replace s #"[\.\,]" "")))
+  (is (= "st louis rams" (normalize "St. Louis Rams")))
+  (is (= "odell beckham jr" (normalize "Odell Beckham, Jr."))))
 
 (defn load-roster [file]
   (let [rows (read-csv file)
@@ -88,23 +87,24 @@
                              counts2)]
       (filter #(not-any? stop-words (:bigram %)) unfiltered))))
 
-(facts "About how we generate bigrams"
-       (fact "We strip out common words"
-             (first (bigrams ["td rt touchdown"
-                              "td rt td rt td rt"
-                              "look less common words remain untouched"
-                              "some more less common things surviving"])) => {:count 2
-                                                                              :bigram ["less" "common"]})
-       (fact "We tokenize before generating bigrams"
+(deftest bigram-generation
+  (testing "We strip out common words"
+    (is (= {:count 2
+            :bigram ["less" "common"]}
+           (first (bigrams ["td rt touchdown"
+                            "td rt td rt td rt"
+                            "look less common words remain untouched"
+                            "some more less common things surviving"]))))
+    (testing "We tokenize before generating bigrams"
+      (is (= [{:count 3
+               :bigram ["demarco" "murray"]}]
              (bigrams ["demarco!!! murray."
                        "demarco- murray,"
-                       "demarco:     ([murray})_"]) => [{:count 3
-                                                         :bigram ["demarco" "murray"]}])
-       (fact "We don't remove our stop words until after partitioning into bigrams"
-             (bigrams "demarco touchdown murray") =not=> [{:count 1
-                                                           :bigram ["demarco" "murray"]}]))
-
-
+                       "demarco:     ([murray})_"]))))
+    (testing "We don't remove our stop words until after partitioning into bigrams"
+      (is (not (= [{:count 1
+                    :bigram ["demarco" "murray"]}]
+                  (bigrams ["demarco touchdown murray"])))))))
 
 (defn identify-scorer
   ([tweets]
@@ -192,36 +192,31 @@
    {:player "zurlon tipton"
     :team "indianapolis colts"}])
 
-(fact "We cross-reference our top-N bigrams against a list of players to pick the player. Then we choose the team using a deterministic lookup from player to team"
-      (identify-scorer roster-snapshot ..tweets..) => {:player "demarco murray"
-                                                       :team "dallas cowboys"}
-      (provided
-       (bigrams ..tweets..) => [{:count 3 :bigram ["touchdown" "baby"]}
-                                {:count 2 :bigram ["touchdown" "cowboys"]}
-                                {:count 1 :bigram ["demarco" "murray"]}]))
-
-(fact "We can extract the scorer from a simple data set"
-      (let [lines (clojure.string/split (slurp "data/demarco-identify.txt") #"\n")
-            tweets (-> "data/demarco-identify.txt"
-                        slurp
-                        (clojure.string/replace "\"" "")
-                        (clojure.string/split #"\n"))]
-        (identify-scorer roster-snapshot tweets) => {:player "demarco murray"
-                                                     :team "dallas cowboys"}))
-(fact "We don't use retweets"
-      (identify-scorer roster-snapshot
-                       ["RT: Demarco Murray scored five minutes ago"
-                        "rt Did you see that Demarco Murray touchdown yesterday?"
-                        "Darren Sproles *just* scored"]) => {:player "darren sproles"
-                                                             :team "philadelphia eagles"})
-
-(fact "We don't just take the most recent name mentioned"
-      (identify-scorer roster-snapshot
-                       ["demarco murray scored"
-                        "touchdown by demarco murray"
-                        "yay demarco murray"
-                        "oh and darren sproles too"]) => {:player "demarco murray"
-                                                          :team "dallas cowboys"})
+(deftest player-and-team-identification
+  (testing "We can extract the scorer from a simple data set"
+    (let [lines (clojure.string/split (slurp "data/demarco-identify.txt") #"\n")
+          tweets (-> "data/demarco-identify.txt"
+                     slurp
+                     (clojure.string/replace "\"" "")
+                     (clojure.string/split #"\n"))]
+      (is (= {:player "demarco murray"
+              :team "dallas cowboys"}
+             (identify-scorer roster-snapshot tweets)))))
+  (testing "We don't use retweets"
+    (is (= {:player "darren sproles"
+            :team "philadelphia eagles"}
+           (identify-scorer roster-snapshot
+                            ["RT: Demarco Murray scored five minutes ago"
+                             "rt Did you see that Demarco Murray touchdown yesterday?"
+                             "Darren Sproles *just* scored"]))))
+  (testing "We don't just take the most recent name mentioned"
+    (is (= {:player "demarco murray"
+            :team "dallas cowboys"}
+           (identify-scorer roster-snapshot
+                            ["demarco murray scored"
+                             "touchdown by demarco murray"
+                             "yay demarco murray"
+                             "oh and darren sproles too"])))))
 
 
 

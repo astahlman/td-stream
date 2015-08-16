@@ -79,6 +79,7 @@
 
 (defn- format-tweet [t]
   (-> t
+      (println t)
       (select-keys [:timestamp_ms :text])
       (clojure.set/rename-keys {:timestamp_ms :t})
       (utilize.map/update :t read-string)))
