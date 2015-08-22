@@ -1,27 +1,11 @@
 (ns td-bot.detection
   (:require [clojure.test :refer [with-test is]]
             [td-bot.metrics :as metric]
-            [clojure.tools.logging :as log])
+            [clojure.tools.logging :as log]
+            [td-bot.stats :refer :all])
   (:use [td-bot.tweet :only [is-retweet?]]
         [incanter.charts :only [line-chart]]
         [incanter.core :only [save]]))
-
-(with-test
-  (defn mean [xs]
-    (/ (reduce + xs) (count xs)))
-  (is (= 3 (mean [1 3 5])))
-  (is (zero? (mean [0])))
-  (is (zero? (mean [-1 0 1])))
-  (is (= 4000 (mean [1000 2000 9000]))))
-
-(with-test
-  (defn std-dev [xs]
-    (let [n (count xs)
-          m (mean xs)
-          dev (map #(-> (- % m) (Math/pow 2)) xs)]
-      (Math/sqrt (mean dev))))
-  (is (= 2.0 (std-dev [2 4 4 4 5 5 7 9])))
-  (is (= 3.0 (std-dev [3 5 5 8 9 12]))))
 
 (def ^:private sig-interval 5000)
 (def ^:private min-buckets 20)
