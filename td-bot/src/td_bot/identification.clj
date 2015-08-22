@@ -29,72 +29,24 @@
                   :player (str (:first_name %) " " (:last_name %)))
        (load-roster "./scripts/rosters.csv")))
 
-(comment (def teams #{"arizona cardinals"
-                      "atlanta falcons"
-                      "baltimore ravens"
-                      "buffalo bills"
-                      "carolina panthers"
-                      "chicago bears"
-                      "cincinnati bengals"
-                      "cleveland browns"
-                      "dallas cowboys"
-                      "denver broncos"
-                      "detroit lions"
-                      "green bay packers"
-                      "houston texans"
-                      "indianapolis colts"
-                      "jacksonville jaguars"
-                      "kansas city chiefs"
-                      "miami dolphins"
-                      "minnesota vikings"
-                      "new england patriots"
-                      "new orleans saints"
-                      "ny giants"
-                      "ny jets"
-                      "oakland raiders"
-                      "philadelphia eagles"
-                      "pittsburgh steelers"
-                      "san diego chargers"
-                      "san francisco 49ers"
-                      "seattle seahawks"
-                      "st louis rams"
-                      "tampa bay buccaneers"
-                      "tennessee titans"
-                      "washington redskins"})
-
-         (facts "We haven't missed any of the 32 NFL teams"
-                (count teams) => 32))
-
 (def ^:private stop-words #{"td" "touchdown" "rt" "baby" "a" "an" "the" "and" "yeah"})
 
 (defn- tokenize [tweet]
   "Relies on the Lucene text tokenizer - https://github.com/eandrejko/clj-tokenizer"
   (tokenize/token-seq (tokenize/token-stream-without-stopwords tweet)))
 
-(comment (defn bigrams [tweets]
-           (let [counts2 (->> tweets
-                              (remove is-retweet?)
-                              (map tokenize)
-                              (mapcat #(partition 2 1 %))
-                              (frequencies)
-                              (sort-by val >))]
-             (let [unfiltered (reduce (fn [r [b c]]
-                                        (conj r (hash-map :bigram b :count c)))
-                                      []
-                                      counts2)]
-               (filter #(not-any? stop-words (:bigram %)) unfiltered)))))
-
 (defn bigrams [tweets]
-  (let [without-rt (metric/timed :bigrams.without-rt (remove is-retweet? tweets))
-        tokenized (metric/timed :bigrams.tokenize (map tokenize without-rt))
-        partitioned (metric/timed :bigrams.partition (mapcat #(partition 2 1 %) tokenized))
-        occurrences (metric/timed :bigrams.count-occur (frequencies partitioned))
-        sorted (metric/timed :bigrams.sort (sort-by val > occurrences))]
+  (let [counts2 (->> tweets
+                     (remove is-retweet?)
+                     (map tokenize)
+                     (mapcat #(partition 2 1 %))
+                     (frequencies)
+                     (sort-by val >))]
     (let [unfiltered (reduce (fn [r [b c]]
                                (conj r (hash-map :bigram b :count c)))
                              []
-                             sorted)]
-      (metric/timed :bigrams.filter (filter #(not-any? stop-words (:bigram %)) unfiltered)))))
+                             counts2)]
+      (filter #(not-any? stop-words (:bigram %)) unfiltered))))
 
 (deftest bigram-generation
   (testing "We strip out common words"
@@ -121,9 +73,10 @@
   ([rosters tweets]
    (let [raw-pairs (metric/timed :bigrams (map :bigram (bigrams tweets)))
          player-names (metric/timed :player-names (into #{} (map :player rosters)))
-         best-match (some (fn [[w1 w2]] ;; TODO: this could be cleaner
+         best-match (some (fn [[w1 w2]]
                             (let [name (apply str w1 " " w2)]
-                              (player-names name))) raw-pairs)]
+                              (player-names name)))
+                          raw-pairs)]
      (metric/timed :best-match (first (filter #(= (:player %) best-match) rosters))))))
 
 ;; The rosters as they were during the games in our test set
@@ -226,6 +179,3 @@
                              "touchdown by demarco murray"
                              "yay demarco murray"
                              "oh and darren sproles too"])))))
-
-
-

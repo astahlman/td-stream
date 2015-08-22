@@ -210,15 +210,14 @@
                    :clock (test-clock-with-start start-time))]
     (run-test true-tds bot)))
 
-(comment
-  (deftest cowboys-eagles-game
-    (testing "Our touchdown scores 'pretty well' on our test data set from
+(deftest cowboys-eagles-game
+  (testing "Our touchdown scores 'pretty well' on our test data set from
         the Cowboys vs. Eagles game"
-      (let [results (run-game dal-phi-file)]
-        (is (>= 8/9 (:f1-score results)))
-        (is (= {:player-score 1
-                :team-score 1}
-               (:player-id-score results)))))))
+    (let [results (run-game dal-phi-file)]
+      (is (>= (:f1-score results) 16/17))
+      (is (= {:player-score 1
+              :team-score 1}
+             (:player-id-score results))))))
 
 (defn run-entire-test-set []
   "Run the bot against our entire test-set"

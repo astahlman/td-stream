@@ -20,16 +20,15 @@
   (is (not (is-td? "Great TD by Demarco Murray")))
   (is (not (is-td? "Errbody in the club getting tipsy"))))
 
-(defn- roughly? [x y]
-  (< (Math/abs (- x y)) 0.001))
-
 (with-test
   (defn- thresh [signal]
     (let [dev (metric/timed :std-dev (std-dev signal))
           avg (mean signal)]
       (+ avg (* 10 dev))))
-  (is (= 25.0 (thresh [2 4 4 4 5 5 7 9])))
-  (is (roughly? 112.882 (thresh [10 29 38 25 31 14 17 28]))))
+  (letfn [(roughly? [x y]
+            (< (Math/abs (- x y)) 0.001))]
+    (is (= 25.0 (thresh [2 4 4 4 5 5 7 9])))
+    (is (roughly? 112.882 (thresh [10 29 38 25 31 14 17 28])))))
 
 (declare make-signal)
 
@@ -38,12 +37,12 @@
         signal ((:update signal) new-tweets)]
     (if (< (count (:buckets signal)) min-buckets)
       (do
-        (println "Not enough!!!")
+        (log/debug "Not enough tweets to run detection.")
         {:alarm-val nil
          :signal signal})
       (let
           [[new-window old-window] (split-at new-window-sz (reverse (:buckets signal)))
-           cur-v (mean (map :val new-window))
+           cur-v (float (mean (map :val new-window)))
            thresh-v (thresh (map :val old-window))]
         (cond
           (zero? thresh-v) (throw (IllegalArgumentException. "Threshold == 0!"))
@@ -58,10 +57,12 @@
           {:alarm-val alarm-val
            :signal signal})))))
 
+(declare new-signal)
+
 (defn plot-signal [tweets]
   "Visualize the td-signal for the given tweets. Save to disk like this:
    (save (plot-signal $tweets) $filename)"
-  (let [signal ((:update (make-signal nil)) tweets)
+  (let [signal (new-signal tweets)
         points (for [{:keys [start-t val]} (:buckets signal)] [start-t val])
         [x y] ((juxt #(map first %) #(map second %)) points)]
     (line-chart x y)))
@@ -83,6 +84,14 @@
    :start-t start-t
    :end-t end-t})
 
+(declare make-signal)
+
+(defn new-signal
+  ([]
+   (make-signal nil))
+  ([tweets]
+   ((:update (new-signal)) tweets)))
+
 (defn make-signal [buckets]
   (let [bucket-start-t #(* sig-interval (int (Math/floor (/ (:t %) sig-interval))))
         take-20-most-recent #(into {} (reverse (take 20 (reverse (into (sorted-map) %)))))
@@ -100,7 +109,6 @@
                                              buckets
                                              bucketized)]
                  (make-signal (take-20-most-recent updated-buckets))))
-     ;; TODO: Can probably avoid the sort here, since we do it on the update
      :buckets (for [[t bucket] (into (sorted-map) buckets)] {:start-t t
                                                              :end-t (+ t sig-interval)
                                                              :val (:signal-v bucket)})}))
