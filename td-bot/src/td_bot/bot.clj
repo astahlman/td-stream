@@ -28,14 +28,15 @@
        (map :text)
        (scorer-ider)))
 
-(defn loop-step [now tweets pending-id & {:keys [td-detector alarm-val scorer-ider id-hook]}]
+(defn loop-step [now tweets new-tweets signal pending-id & {:keys [td-detector alarm-val scorer-ider id-hook]}]
   "Takes the current time, a list of tweets, and a buffer of touchdowns
    pending identification, and mark any new touchdowns
    occurring in the last 30 seconds as pending identification. Mark any
    pending touchdowns as identified if their team and player can be identified."
   (let [detection-results (metric/timed :detection (td-detector {:alarm-val alarm-val
-                                                                 :tweet-buff tweets}))
-        tweet-buff (:tweet-buff detection-results)
+                                                                 :new-tweets new-tweets
+                                                                 :signal signal}))
+        tweet-buff (filter #(>= (:t %) (- now 100000)) tweets)
         tds (map #(hash-map :happened-at % :detected-at now) (:detections detection-results))
         pending-id (concat tds pending-id)
         maybe-identified (map #(conj % 
@@ -51,6 +52,7 @@
       (dorun (println (str "broadcasting: " (seq to-broadcast))))
       (dorun (map id-hook to-broadcast)))
     {:tweet-buff tweet-buff
+     :signal (:signal detection-results)
      :pending (seq still-pending)
      :identified (seq to-broadcast)
      :alarm-val (:alarm-val detection-results)}))
@@ -74,16 +76,19 @@
    (loop [pending nil
           broadcasted 0
           tweet-buff nil
+          signal nil
           i 1
           last-time nil
           alarm-val nil]
      (let [now (clock i last-time)
            new-tweets (metric/timed :read-tweets (tweet-stream now))]
        (if (and new-tweets (continue? i))
-         (let [tweet-buff (concat tweet-buff new-tweets)
+         (let [tweet-buff (into [] (concat tweet-buff new-tweets))
                results (loop-step
                         now
                         tweet-buff
+                        new-tweets
+                        signal
                         pending
                         :td-detector td-detector
                         :alarm-val alarm-val
@@ -94,6 +99,7 @@
            (recur pending
                   (+ broadcasted (count identified))
                   (:tweet-buff results)
+                  (:signal results)
                   (inc i)
                   now
                   (:alarm-val results)))

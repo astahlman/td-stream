@@ -4,7 +4,8 @@
             [clj-tokenizer.core :as tokenize]
             [clojure.data.csv :as csv]
             [clojure.java.io :as io]
-            [clojure.test :refer :all]))
+            [clojure.test :refer :all]
+            [td-bot.metrics :as metric]))
 
 (defn- read-csv [file]
   (with-open [in-file (io/reader file)]
@@ -66,26 +67,34 @@
 
 (def ^:private stop-words #{"td" "touchdown" "rt" "baby" "a" "an" "the" "and" "yeah"})
 
-(defn- count-occurrences [coll]
-  (reduce (fn [m x]
-            (assoc m x (inc (m x 0)))) {} coll))
-
 (defn- tokenize [tweet]
   "Relies on the Lucene text tokenizer - https://github.com/eandrejko/clj-tokenizer"
   (tokenize/token-seq (tokenize/token-stream-without-stopwords tweet)))
 
-(defn- bigrams [tweets]
-  (let [counts2 (->> tweets
-                     (remove is-retweet?)
-                     (map tokenize)
-                     (mapcat #(partition 2 1 %))
-                     (count-occurrences)
-                     (sort-by val >))]
+(comment (defn bigrams [tweets]
+           (let [counts2 (->> tweets
+                              (remove is-retweet?)
+                              (map tokenize)
+                              (mapcat #(partition 2 1 %))
+                              (frequencies)
+                              (sort-by val >))]
+             (let [unfiltered (reduce (fn [r [b c]]
+                                        (conj r (hash-map :bigram b :count c)))
+                                      []
+                                      counts2)]
+               (filter #(not-any? stop-words (:bigram %)) unfiltered)))))
+
+(defn bigrams [tweets]
+  (let [without-rt (metric/timed :bigrams.without-rt (remove is-retweet? tweets))
+        tokenized (metric/timed :bigrams.tokenize (map tokenize without-rt))
+        partitioned (metric/timed :bigrams.partition (mapcat #(partition 2 1 %) tokenized))
+        occurrences (metric/timed :bigrams.count-occur (frequencies partitioned))
+        sorted (metric/timed :bigrams.sort (sort-by val > occurrences))]
     (let [unfiltered (reduce (fn [r [b c]]
                                (conj r (hash-map :bigram b :count c)))
                              []
-                             counts2)]
-      (filter #(not-any? stop-words (:bigram %)) unfiltered))))
+                             sorted)]
+      (metric/timed :bigrams.filter (filter #(not-any? stop-words (:bigram %)) unfiltered)))))
 
 (deftest bigram-generation
   (testing "We strip out common words"
@@ -110,12 +119,12 @@
   ([tweets]
    (identify-scorer latest-rosters tweets))
   ([rosters tweets]
-   (let [raw-pairs (map :bigram (bigrams tweets))
-         player-names (into #{} (map :player rosters))
+   (let [raw-pairs (metric/timed :bigrams (map :bigram (bigrams tweets)))
+         player-names (metric/timed :player-names (into #{} (map :player rosters)))
          best-match (some (fn [[w1 w2]] ;; TODO: this could be cleaner
                             (let [name (apply str w1 " " w2)]
                               (player-names name))) raw-pairs)]
-     (first (filter #(= (:player %) best-match) rosters)))))
+     (metric/timed :best-match (first (filter #(= (:player %) best-match) rosters))))))
 
 ;; The rosters as they were during the games in our test set
 (def roster-snapshot

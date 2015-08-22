@@ -1,6 +1,7 @@
 (ns td-bot.detection
   (:require [clojure.test :refer [with-test is]]
-            [td-bot.metrics :as metric])
+            [td-bot.metrics :as metric]
+            [clojure.tools.logging :as log])
   (:use [td-bot.tweet :only [is-retweet?]]
         [incanter.charts :only [line-chart]]
         [incanter.core :only [save]]))
@@ -22,45 +23,12 @@
   (is (= 2.0 (std-dev [2 4 4 4 5 5 7 9])))
   (is (= 3.0 (std-dev [3 5 5 8 9 12]))))
 
-(defn enough? [tweets]
-  "We need 100 seconds worth of tweets"
-  (let [old-sz (* 1000 90)
-        new-sz (* 1000 10)
-        latest (apply max (map :t tweets))
-        first (apply min (map :t tweets))]
-    (>= (- latest first) (+ old-sz new-sz))))
-
-(defn most-recent-tweet-before [t tweets]
-  (let [delta (fn [tweet]
-               (- t (:t tweet)))]
-    (loop [best nil
-           [x & xs] tweets]
-      (cond
-        (not x) best
-        (not best) (recur x xs)
-        (and (pos? (delta x)) (< (delta x) (delta best))) (recur x xs)
-        :else (recur best xs)))))
-
-(defn partition-window [tweets]
-  "Split the tweet buffer in two"
-  (let [old-sz (* 1000 90)
-        new-sz (* 1000 10)
-        latest (apply max (map :t tweets))
-        old-window-start (- latest new-sz old-sz 1) ;; - 1 because
-        ;; window start is exclusive
-        old-window-end (- latest new-sz)
-        make-win (fn [start end]
-                   (filter #(and (> (:t %) start)
-                                 (<= (:t %) end)) tweets))]
-    [(cons
-      (most-recent-tweet-before old-window-start tweets)
-      (make-win old-window-start old-window-end))
-     (make-win old-window-end latest)]))
-
 (def ^:private sig-interval 5000)
+(def ^:private min-buckets 20)
+(def ^:private new-window-sz 2)
 
 (with-test
-  (defn- is-td? [text]
+  (defn is-td? [text]
     (re-find #"(?i)touchdown" text))
   (is (is-td? "TOUCHDOWN!!!!"))
   (is (is-td? "That's a touchdown"))
@@ -68,76 +36,87 @@
   (is (not (is-td? "Great TD by Demarco Murray")))
   (is (not (is-td? "Errbody in the club getting tipsy"))))
 
-(comment (defn- bucketize [tweets]
-           (->> tweets
-                (sort-by :t)
-                (partition-by #(Math/ceil (/ (:t %) sig-interval))))))
-
-(defn- bucketize [tweets]
-  (partition-by #(Math/ceil (/ (:t %) sig-interval)) tweets))
-
-(defn td-signal [tweets]
-  ;(spit "/tmp/debugging" (str (into [] (map :text tweets)) "\n") :append true)
-  (let [tweets (metric/timed :force-tweets (into [] tweets))
-        without-rt (metric/timed :td-signal.without-rt (doall (remove #(is-retweet? (:text %)) tweets)))
-        buckets (metric/timed :td-signal.bucketize (doall (bucketize without-rt)))
-        sig-val (fn [bucket]
-                  (/ (count (filter #(is-td? (:text %)) bucket))
-                     (mean (map #(count (:text %)) bucket))))]
-    (metric/timed :td-signal.sig-val (doall (map sig-val buckets)))))
-
 (defn- roughly? [x y]
   (< (Math/abs (- x y)) 0.001))
 
 (with-test
   (defn- thresh [signal]
     (let [dev (metric/timed :std-dev (std-dev signal))
-          avg (metric/timed :mean (mean signal))]
+          avg (mean signal)]
       (+ avg (* 10 dev))))
   (is (= 25.0 (thresh [2 4 4 4 5 5 7 9])))
   (is (roughly? 112.882 (thresh [10 29 38 25 31 14 17 28]))))
 
-(defn detect-tds [{:keys [alarm-val tweet-buff]}]
-  "Detect touchdowns given a buffer of tweets and the current state
-   Return the new state."
-  (if (metric/timed :enough?
-                    (enough? tweet-buff))
-    (let [[old-w new-w] (metric/timed :partition-window (partition-window tweet-buff))
-          old-signal (metric/timed :signal.old-window (td-signal old-w))
-          new-signal (metric/timed :signal.new-window (td-signal new-w))
-          thresh-v (metric/timed :thresh (thresh old-signal))
-          cur-v (metric/timed :cur-v (mean new-signal))]
-      (do (spit "/tmp/debug.txt"
-                (str "t: " (:t (first old-w))
-                     ",alarm-val: " alarm-val
-                     ",thresh-v: " thresh-v
-                     ",cur-v: " (double cur-v)
-                     "\n")
-                :append true))
-      (cond
-        (zero? thresh-v) (spit "/tmp/debug.txt"
-                               (str "Threshold is 0!\n"
-                                    "(first tweet-buff) = " (first tweet-buff)
-                                    "\n")
-                               :append true)
-        (and alarm-val (<= cur-v alarm-val))
+(declare make-signal)
+
+(defn detect-tds [{:keys [alarm-val new-tweets signal]}]
+  (let [signal (or signal (make-signal nil))
+        signal ((:update signal) new-tweets)]
+    (if (< (count (:buckets signal)) min-buckets)
+      (do
+        (println "Not enough!!!")
         {:alarm-val nil
-         :tweet-buff (concat old-w new-w)}
-        (and (nil? alarm-val) (> cur-v thresh-v))
-        (do (spit "/tmp/debug.txt" "TOUCHDOWN!!!\n" :append true)
-            {:alarm-val thresh-v
-             :tweet-buff (concat old-w new-w)
-             :detections [(:t (first new-w))]}) ;;; For now we always return <= 1
-        :else
-        {:alarm-val alarm-val
-         :tweet-buff (concat old-w new-w)}))
-    {:alarm-val nil
-     :tweet-buff tweet-buff}))
+         :signal signal})
+      (let
+          [[new-window old-window] (split-at new-window-sz (reverse (:buckets signal)))
+           cur-v (mean (map :val new-window))
+           thresh-v (thresh (map :val old-window))]
+        (cond
+          (zero? thresh-v) (throw (IllegalArgumentException. "Threshold == 0!"))
+          (and alarm-val (<= cur-v alarm-val))
+          {:alarm-val nil
+           :signal signal}
+          (and (nil? alarm-val) (> cur-v thresh-v))
+          {:alarm-val thresh-v
+           :signal signal
+           :detections [(apply max (map :end-t new-window))]} ;;; For now we always return <= 1
+          :else
+          {:alarm-val alarm-val
+           :signal signal})))))
 
 (defn plot-signal [tweets]
   "Visualize the td-signal for the given tweets. Save to disk like this:
    (save (plot-signal $tweets) $filename)"
-  (let [t (map (comp :t first) (bucketize tweets))
-        x (map #(Math/ceil (/ % sig-interval)) t)
-        y (td-signal tweets)]
+  (let [signal ((:update (make-signal nil)) tweets)
+        points (for [{:keys [start-t val]} (:buckets signal)] [start-t val])
+        [x y] ((juxt #(map first %) #(map second %)) points)]
     (line-chart x y)))
+
+(defn make-bucket [{:keys [signal-v total-tds num-tweets total-chars start-t end-t]}]
+  {:update (fn [tweets]
+             (let [total-tds (+ (count (filter is-td? tweets)) (or total-tds 0))
+                   num-tweets (+ (count tweets) (or num-tweets 0))
+                   total-chars (reduce + (or total-chars 0) (map count tweets))
+                   avg-tweet-len (/ total-chars num-tweets)
+                   signal-v (/ total-tds avg-tweet-len)]
+               (make-bucket {:signal-v signal-v
+                             :total-tds total-tds
+                             :num-tweets num-tweets
+                             :total-chars total-chars
+                             :start-t start-t
+                             :end-t end-t})))
+   :signal-v signal-v
+   :start-t start-t
+   :end-t end-t})
+
+(defn make-signal [buckets]
+  (let [bucket-start-t #(* sig-interval (int (Math/floor (/ (:t %) sig-interval))))
+        take-20-most-recent #(into {} (reverse (take 20 (reverse (into (sorted-map) %)))))
+        new-bucket #(make-bucket {:start-t %
+                                  :end-t (+ % sig-interval)})]
+    {:update (fn [tweets]
+               (let [tweets (remove is-retweet? tweets)
+                     bucketized (group-by bucket-start-t tweets)
+                     updated-buckets (reduce (fn [buckets-to-update [t new-tweets]]
+                                               (update-in buckets-to-update
+                                                          [t]
+                                                          (fn [bucket]
+                                                            (let [b (or bucket (new-bucket t))]
+                                                              ((:update b) (map :text new-tweets))))))
+                                             buckets
+                                             bucketized)]
+                 (make-signal (take-20-most-recent updated-buckets))))
+     ;; TODO: Can probably avoid the sort here, since we do it on the update
+     :buckets (for [[t bucket] (into (sorted-map) buckets)] {:start-t t
+                                                             :end-t (+ t sig-interval)
+                                                             :val (:signal-v bucket)})}))

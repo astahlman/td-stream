@@ -1,11 +1,20 @@
 (ns td-bot.metrics
-  (:require [clojure.test :refer :all]))
+  (:require [clojure.test :refer :all]
+            [td-bot.detection :refer [mean]]))
 
 (def ^{:dynamic true} *metrics* (atom {}))
 
 (defn reset-metrics! []
   (reset! *metrics* {}))
 
+(defn print-metrics []
+  (clojure.pprint/pprint
+   (sort-by (comp :total second)
+            (let [m @td-bot.metrics/*metrics*]
+              (into {}
+                    (for [[label times] m]
+                      [label {:mean (double (mean times))
+                              :total (reduce + times)}]))))))
 (defmacro timed
   "Execute body and conj the execution time to the metrics with the given label"
   [label & body]
