@@ -4,6 +4,7 @@
              :refer [>! <! >!! <!! go chan buffer close! thread
                      alts! alts!! timeout sliding-buffer]]  ;; Trim...
             [td-bot.detection :as detect]
+            [td-bot.tweet :as tweet]
             [td-bot.identification :as identify]
             [td-bot.metrics :as metric]
             [clojure.tools.logging :as log]))
@@ -16,7 +17,7 @@
   (hash-map
    :id-hook #(map simple-alert %)
    :clock (fn [_ _] (System/currentTimeMillis))
-   :tweet-stream nil
+   :tweet-stream (tweet/create-stream)
    :td-detector detect/detect-tds
    :scorer-ider identify/identify-scorer))
 
@@ -46,43 +47,50 @@
      :alarm-val (:alarm-val detection-results)}))
 
 (defn- simple-alert [{:keys [player team]}]
-  (let [msg (str player " just scored a touchdown for the " team ". Hooray!")]
+  (let [msg (str "TOUCHDOWN!!! " player " just scored a touchdown for the " team ". Hooray!")]
     (println msg)
+    (log/info msg)
     msg))
 
 (defn main-loop 
   "Do this constantly until continue? returns false or we run out of tweets"
+  ([]
+   (main-loop (constantly true)))
   ([continue?]
    (main-loop continue? (system)))
   ([continue? {:keys [tweet-stream td-detector scorer-ider id-hook clock]}]
    (log/info "Starting bot...")
-   (loop [pending nil
-          broadcasted 0
-          signal nil
-          i 1
-          last-time nil
-          alarm-val nil]
-     (let [now (clock i last-time)
-           new-tweets (metric/timed :read-tweets (tweet-stream now))]
-       (if (and new-tweets (continue? i))
-         (let [results (loop-step
-                        now
-                        new-tweets
-                        signal
-                        pending
-                        :td-detector td-detector
-                        :alarm-val alarm-val
-                        :scorer-ider scorer-ider
-                        :id-hook id-hook)
-               identified (:identified results)
-               pending (:pending results)]
-           (recur pending
-                  (+ broadcasted (count identified))
-                  (:signal results)
-                  (inc i)
-                  now
-                  (:alarm-val results)))
-         {:broadcasted broadcasted
-          :pending (count pending)})))))
+   (let [{close-stream :close read-stream :read} tweet-stream]
+     (loop [pending nil
+            broadcasted 0
+            signal nil
+            i 1
+            last-time nil
+            alarm-val nil]
+       (let [now (clock i last-time)
+             new-tweets (metric/timed :read-tweets (read-stream now))]
+         (if (and new-tweets (continue? i))
+           (let [results (loop-step
+                          now
+                          new-tweets
+                          signal
+                          pending
+                          :td-detector td-detector
+                          :alarm-val alarm-val
+                          :scorer-ider scorer-ider
+                          :id-hook id-hook)
+                 identified (:identified results)
+                 pending (:pending results)]
+             (recur pending
+                    (+ broadcasted (count identified))
+                    (:signal results)
+                    (inc i)
+                    now
+                    (:alarm-val results)))
+           (do
+             (log/info "Closing bot...")
+             (close-stream)
+             {:broadcasted broadcasted
+              :pending (count pending)})))))))
 
 

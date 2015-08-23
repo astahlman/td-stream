@@ -1,16 +1,12 @@
 (ns td-bot.core
+  (:require [td-bot.bot :as bot]
+            [clojure.tools.logging :as log])
   (:gen-class))
 
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]
   ;; work around dangerous default behaviour in Clojure
-  (alter-var-root #'*read-eval* (constantly false))
-  (println "Hello, World!"))
-
-(defn bot
-  [{:keys [domain]}]
-  (domain {:test {:tweet-stream nil
-                  :clock nil}
-           :prod {:tweet-stream nil
-                  :clock nil}}))
+  (comment (alter-var-root #'*read-eval* (constantly false)))
+  (log/info "Starting touchdown bot")
+  (bot/main-loop))
