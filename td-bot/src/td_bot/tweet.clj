@@ -86,6 +86,10 @@
       (clojure.set/rename-keys {:timestamp_ms :t})
       (utilize.map/update :t read-string)))
 
+(defn log-tweets [tweets]
+  (when (seq tweets)
+    (log/log "tweetsLogger" :info nil (str (into [] tweets)))))
+
 (defn create-stream
   ([] (create-stream ["touchdown"
                       "TD"
@@ -113,4 +117,5 @@
               (let [tweets @buff]
                 (do
                   (reset! buff '())
+                  (log-tweets tweets)
                     tweets)))})))
