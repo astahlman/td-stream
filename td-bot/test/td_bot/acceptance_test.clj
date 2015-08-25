@@ -187,8 +187,13 @@
   ([true-tds bot]
    "Run bot and label results according to ground truth supplied in true-tds"
    (let [detections (atom ())
-         save-detection (fn [td] (swap! detections conj td))
-         bot (assoc bot :id-hook save-detection)
+         save-detection (fn [td] (do
+                                  (swap! detections conj td)))
+         bot (update-in bot [:id-hook] (fn [old-hook]
+                                          (fn [td]
+                                            (do
+                                              (old-hook td)
+                                              (save-detection td)))))
          indefinitely (fn [_] true)]
      (bot/main-loop indefinitely bot)
      (let [raw-detections @detections

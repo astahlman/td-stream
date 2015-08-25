@@ -1,11 +1,30 @@
 (ns td-bot.metrics
   (:require [clojure.test :refer :all]
-            [td-bot.stats :refer [mean median]]))
+            [td-bot.stats :refer [mean median]]
+            [metrics.gauges :refer [gauge-fn]]
+            [metrics.meters :refer [meter mark!]]
+            [metrics.reporters.csv :as csv]))
 
 (def metrics (atom {}))
+(def CR (csv/reporter "/tmp/csv_reporter" {}))
+
+
+(defn register-gauge [title f]
+  (let [new-gauge (gauge-fn title f)]
+    (swap! metrics (fn [m]
+                     (update-in m [:gauges] #(assoc % title new-gauge))))))
+
+(defn mark-meter! [title]
+  (let [met (or (get-in @metrics [:meters title])
+                (get-in (swap! metrics (fn [m]
+                                          (update-in m [:meters]
+                                                     #(assoc % title (meter title)))))
+                        [:meters title]))]
+    (mark! met)))
 
 (defn reset-metrics! []
-  (reset! metrics {}))
+  (reset! metrics {})
+  (csv/start CR 1))
 
 (defn print-metrics []
   (clojure.pprint/pprint
@@ -25,7 +44,7 @@
          result# ~@body
          t# (- (System/currentTimeMillis) start#)]
      (do (swap! metrics (fn [m#]
-                            (update-in m# [~label] #(conj % t#))))
+                            (update-in m# [:timers ~label] #(conj % t#))))
          result#)))
 
 (deftest timed-operations

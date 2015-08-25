@@ -15,7 +15,7 @@
   "Returns a new instance of the application."
   (metric/reset-metrics!)
   (hash-map
-   :id-hook #(map simple-alert %)
+   :id-hook simple-alert
    :clock (fn [_ _] (System/currentTimeMillis))
    :tweet-stream (tweet/create-stream)
    :td-detector detect/detect-tds
@@ -48,9 +48,8 @@
 
 (defn- simple-alert [{:keys [player team]}]
   (let [msg (str "TOUCHDOWN!!! " player " just scored a touchdown for the " team ". Hooray!")]
-    (println msg)
-    (log/info msg)
-    msg))
+    (log/info msg))
+  (metric/mark-meter! "touchdowns"))
 
 (defn main-loop 
   "Do this constantly until continue? returns false or we run out of tweets"
@@ -60,7 +59,10 @@
    (main-loop continue? (system)))
   ([continue? {:keys [tweet-stream td-detector scorer-ider id-hook clock]}]
    (log/info "Starting bot...")
-   (let [{close-stream :close read-stream :read} tweet-stream]
+   (let [signal-gauge-val (atom nil)
+         {close-stream :close read-stream :read} tweet-stream]
+     (metric/register-gauge "td-signal"
+                            #(last (:values @signal-gauge-val)))
      (loop [pending nil
             broadcasted 0
             signal nil
@@ -80,13 +82,17 @@
                           :scorer-ider scorer-ider
                           :id-hook id-hook)
                  identified (:identified results)
-                 pending (:pending results)]
-             (recur pending
-                    (+ broadcasted (count identified))
-                    (:signal results)
-                    (inc i)
-                    now
-                    (:alarm-val results)))
+                 pending (:pending results)
+                 signal (:signal results)
+                 alarm-val (:alarm-val results)]
+             (do
+               (reset! signal-gauge-val signal)
+               (recur pending
+                      (+ broadcasted (count identified))
+                      signal
+                      (inc i)
+                      now
+                      alarm-val)))
            (do
              (log/info "Closing bot...")
              (close-stream)

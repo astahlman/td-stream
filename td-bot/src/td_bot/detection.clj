@@ -2,7 +2,8 @@
   (:require [clojure.test :refer [with-test is]]
             [td-bot.metrics :as metric]
             [clojure.tools.logging :as log]
-            [td-bot.stats :refer :all])
+            [td-bot.stats :refer :all]
+            [metrics.reporters.csv :as csv])
   (:use [td-bot.tweet :only [is-retweet?]]
         [incanter.charts :only [line-chart]]
         [incanter.core :only [save]]))
@@ -10,6 +11,7 @@
 (def ^:private sig-interval 5000)
 (def ^:private min-buckets 20)
 (def ^:private new-window-sz 2)
+
 
 (with-test
   (defn is-td? [text]
@@ -111,4 +113,5 @@
                  (make-signal (take-20-most-recent updated-buckets))))
      :buckets (for [[t bucket] (into (sorted-map) buckets)] {:start-t t
                                                              :end-t (+ t sig-interval)
-                                                             :val (:signal-v bucket)})}))
+                                                             :val (:signal-v bucket)})
+     :values (map :signal-v (vals (into (sorted-map) buckets)))}))

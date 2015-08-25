@@ -4,7 +4,6 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.6.0"]
-                 [midje "1.6.3"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
                  [org.clojure/data.json "0.2.6"]
                  [incanter "1.9.0"]
@@ -15,6 +14,8 @@
                                                                                          org.slf4j/jcl-over-slf4j
                                                                                          org.slf4j/log4j-over-slf4j
                                                                                          org.slf4j/jul-to-slf4j]]
+                 ;; metrics
+                 [metrics-clojure "2.5.1"]
                  ;; Logging dependencies
                  [org.clojure/tools.logging "0.3.1"]
                  [org.slf4j/slf4j-log4j12 "1.7.1"]
