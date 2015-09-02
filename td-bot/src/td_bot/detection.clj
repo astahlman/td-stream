@@ -2,8 +2,7 @@
   (:require [clojure.test :refer [with-test is]]
             [td-bot.metrics :as metric]
             [clojure.tools.logging :as log]
-            [td-bot.stats :refer :all]
-            [metrics.reporters.csv :as csv])
+            [td-bot.stats :refer :all])
   (:use [td-bot.tweet :only [is-retweet?]]
         [incanter.charts :only [line-chart]]
         [incanter.core :only [save]]))
@@ -44,8 +43,8 @@
          :signal signal})
       (let
           [[new-window old-window] (split-at new-window-sz (reverse (:buckets signal)))
-           cur-v (float (mean (map :val new-window)))
-           thresh-v (thresh (map :val old-window))]
+           cur-v (metric/with-gauge "td-signal" (float (mean (map :val new-window))))
+           thresh-v (metric/with-gauge "td-threshold" (thresh (map :val old-window)))]
         (cond
           (zero? thresh-v) (throw (IllegalArgumentException. "Threshold == 0!"))
           (and alarm-val (<= cur-v alarm-val))

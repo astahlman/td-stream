@@ -1,13 +1,10 @@
 (ns td-bot.bot
-  (:require [clojure.core.async
-             :as a
-             :refer [>! <! >!! <!! go chan buffer close! thread
-                     alts! alts!! timeout sliding-buffer]]  ;; Trim...
-            [td-bot.detection :as detect]
-            [td-bot.tweet :as tweet]
-            [td-bot.identification :as identify]
-            [td-bot.metrics :as metric]
-            [clojure.tools.logging :as log]))
+  (:require
+   [td-bot.detection :as detect]
+   [td-bot.tweet :as tweet]
+   [td-bot.identification :as identify]
+   [td-bot.metrics :as metric]
+   [clojure.tools.logging :as log]))
 
 (declare simple-alert)
 
@@ -59,10 +56,7 @@
    (main-loop continue? (system)))
   ([continue? {:keys [tweet-stream td-detector scorer-ider id-hook clock]}]
    (log/info "Starting bot...")
-   (let [signal-gauge-val (atom nil)
-         {close-stream :close read-stream :read} tweet-stream]
-     (metric/register-gauge "td-signal"
-                            #(last (:values @signal-gauge-val)))
+   (let [{close-stream :close read-stream :read} tweet-stream]
      (loop [pending nil
             broadcasted 0
             signal nil
@@ -85,14 +79,12 @@
                  pending (:pending results)
                  signal (:signal results)
                  alarm-val (:alarm-val results)]
-             (do
-               (reset! signal-gauge-val signal)
-               (recur pending
-                      (+ broadcasted (count identified))
-                      signal
-                      (inc i)
-                      now
-                      alarm-val)))
+             (recur pending
+                    (+ broadcasted (count identified))
+                    signal
+                    (inc i)
+                    now
+                    alarm-val))
            (do
              (log/info "Closing bot...")
              (close-stream)

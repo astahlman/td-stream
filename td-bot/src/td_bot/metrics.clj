@@ -1,26 +1,33 @@
 (ns td-bot.metrics
   (:require [clojure.test :refer :all]
-            [td-bot.stats :refer [mean median]]
-            [metrics.gauges :refer [gauge-fn]]
-            [metrics.meters :refer [meter mark!]]
+            [td-bot.stats :as stats]
+            [clojure.pprint :only [pprint]]
+            [metrics.meters :as meters]
+            [metrics.gauges :as gauges]
             [metrics.reporters.csv :as csv]))
 
 (def metrics (atom {}))
 (def CR (csv/reporter "/tmp/csv_reporter" {}))
 
+(defn with-gauge [title val]
+  (let [gauge (or (get-in @metrics [:gauges title])
+                  (get-in (swap! metrics
+                                 (fn [m]
+                                   (let [backing-atom (atom nil)]
+                                     (update-in m [:gauges]
+                                                #(assoc % title {:gauge (gauges/gauge-fn title (fn [] @backing-atom))
+                                                                 :backing-atom backing-atom})))))
+                          [:gauges title]))]
+    (reset! (:backing-atom gauge) val)))
 
-(defn register-gauge [title f]
-  (let [new-gauge (gauge-fn title f)]
-    (swap! metrics (fn [m]
-                     (update-in m [:gauges] #(assoc % title new-gauge))))))
 
 (defn mark-meter! [title]
   (let [met (or (get-in @metrics [:meters title])
                 (get-in (swap! metrics (fn [m]
-                                          (update-in m [:meters]
-                                                     #(assoc % title (meter title)))))
+                                         (update-in m [:meters]
+                                                    #(assoc % title (meters/meter title)))))
                         [:meters title]))]
-    (mark! met)))
+    (meters/mark! met)))
 
 (defn reset-metrics! []
   (reset! metrics {})
@@ -32,8 +39,8 @@
             (let [m @metrics]
               (into {}
                     (for [[label times] m]
-                      [label {:mean (double (mean times))
-                              :median (median times)
+                      [label {:mean (double (stats/mean times))
+                              :median (stats/median times)
                               :n (count times)
                               :max (apply max times)
                               :total (reduce + times)}]))))))
