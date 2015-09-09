@@ -7,7 +7,7 @@
             [metrics.reporters.csv :as csv]))
 
 (def metrics (atom {}))
-(def CR (csv/reporter "/tmp/csv_reporter" {}))
+(def CR (csv/reporter "/var/log/td-bot" {}))
 
 (defn with-gauge [title val]
   (let [gauge (or (get-in @metrics [:gauges title])
