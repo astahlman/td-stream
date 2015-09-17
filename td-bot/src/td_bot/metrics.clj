@@ -44,15 +44,23 @@
                               :n (count times)
                               :max (apply max times)
                               :total (reduce + times)}]))))))
+
+;; We aren't being smart about how many data points to keep,
+;; so keeping this on in production would eventually exhaust the heap
+(def should-instrument false)
+
+;; TODO: Use the Metrics library for this
 (defmacro timed
   "Execute body and conj the execution time to the metrics with the given label"
   [label & body]
   `(let [start# (System/currentTimeMillis)
          result# ~@body
          t# (- (System/currentTimeMillis) start#)]
-     (do (swap! metrics (fn [m#]
+     (when ~should-instrument
+       (do (swap! metrics (fn [m#]
                             (update-in m# [:timers ~label] #(conj % t#))))
-         result#)))
+           result#))
+     result#))
 
 (deftest timed-operations
   (let [result1 (timed :test-op (do (Thread/sleep 100) (inc 42)))
