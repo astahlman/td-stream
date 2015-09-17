@@ -23,6 +23,9 @@
                                                     javax.jms/jms
                                                     com.sun.jmdk/jmxtools
                                                     com.sun.jmx/jmxri]]]
+
+  :java-agents [[com.newrelic.agent.java/newrelic-agent "3.20.0"]]
+  :bootclasspath true
   :main td-bot.core)
 
 
