@@ -3,7 +3,7 @@
             [td-bot.metrics :as metric]
             [clojure.tools.logging :as log]
             [td-bot.stats :refer :all])
-  (:use [td-bot.tweet :only [is-retweet?]]
+  (:use [td-bot.tweet :only [is-retweet? file-stream]]
         [incanter.charts :only [line-chart]]
         [incanter.core :only [save]]))
 
@@ -94,8 +94,9 @@
    ((:update (new-signal)) tweets)))
 
 (defn make-signal [buckets]
-  (let [bucket-start-t #(* sig-interval (int (Math/floor (/ (:t %) sig-interval))))
-        take-20-most-recent #(into {} (reverse (take 20 (reverse (into (sorted-map) %)))))
+  (let [n 20
+        bucket-start-t #(* sig-interval (int (Math/floor (/ (:t %) sig-interval))))
+        take-n-most-recent #(into {} (reverse (take n (reverse (into (sorted-map) %)))))
         new-bucket #(make-bucket {:start-t %
                                   :end-t (+ % sig-interval)})]
     {:update (fn [tweets]
@@ -109,7 +110,7 @@
                                                               ((:update b) (map :text new-tweets))))))
                                              buckets
                                              bucketized)]
-                 (make-signal (take-20-most-recent updated-buckets))))
+                 (make-signal (take-n-most-recent updated-buckets))))
      :buckets (for [[t bucket] (into (sorted-map) buckets)] {:start-t t
                                                              :end-t (+ t sig-interval)
                                                              :val (:signal-v bucket)})

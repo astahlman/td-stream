@@ -1,6 +1,7 @@
 (ns td-bot.acceptance-test
   (:use [td-bot.test-data :only [dal-phi-touchdowns ground-truth]]
-        [td-bot.tweet :only [file-stream find-start-time]])
+        [td-bot.tweet :only [file-stream]]
+        [td-bot.utils :only [find-start-time]])
   (:require [td-bot.bot :as bot]
             [td-bot.identification :as id]
             [clojure.test :refer :all]))

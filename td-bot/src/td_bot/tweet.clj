@@ -16,6 +16,25 @@
    (clojure.set/rename-keys {:timestamp_ms :t})
    (utilize.map/update :t read-string)))
 
+(defn ls [dir-name]
+  (map #(.getPath %)
+       (remove #(= % (clojure.java.io/file dir-name)) (file-seq (clojure.java.io/file dir-name)))))
+
+(defn raw-tweet-log->json-file [path]
+  (let [lines (clojure.string/split (slurp path) #"\n")
+        start-of-tweets-re #"\[\{.*"
+        line->tweets #(read-string (re-find start-of-tweets-re %))
+        tweet->json (fn [tweet] (->
+                                tweet
+                                (clojure.set/rename-keys {:t :timestamp_ms})
+                                (utilize.map/update :timestamp_ms str)
+                                (json/write-str)))
+        content (reduce #(concat %1 (line->tweets %2)) [] lines)]
+    (spit
+     (str path ".json")
+     (clojure.string/join "\n" (map tweet->json content))
+     :append true)))
+
 (defn file-stream [file]
   "Return a function of one-argument (now) which consumes and returns
    all the tweets up until time 'now'. File stream is closed once EOF
@@ -48,17 +67,7 @@
                          ret)
                        :else (recur (conj ret tweet))))))))}))
 
-(defn find-start-time [file]
-  "Return the timestamp of the first tweet in the file"
-  (let [rdr (io/reader file)
-        line (try (.readLine rdr) (catch Exception e) (finally (.close rdr)))
-        tweet (json->tweet line)]
-    (:t tweet)))
 
-(def ^:private dal-phi-file "data/cowboys-eagles.txt")
-
-(comment (fact "We can get the start time of a stream"
-               (find-start-time dal-phi-file) => 1418606430585))
 
 (defn create-creds []
   (let [{:keys [consumer-key consumer-secret user-access-token user-access-token-secret]}
