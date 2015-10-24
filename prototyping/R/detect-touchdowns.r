@@ -129,13 +129,18 @@ detection.with.state <- function(df,
     data.frame(timestamp)
 }
                                  
-detection.with.state.signal.amp <- function(df,
-                                 OLD_WINDOW_SIZE=90000,
-                                 NEW_WINDOW_SIZE=10000,
-                                 STEP=5000,
-                                 BUCKET=5000,
-                                 THRESH=10) {
-    ts <- as.ts.amp(df, BUCKET)
+detection.with.state.signal.amp <- function(df=NULL,
+                                            ts=NULL,
+                                            OLD_WINDOW_SIZE=90000,
+                                            NEW_WINDOW_SIZE=10000,
+                                            STEP=5000,
+                                            BUCKET=5000,
+                                            THRESH=10) {
+    # Make amplified time-series from dataframe if no time-series is supplied
+    if (is.null(ts)) {
+        ts <- as.ts.amp(df, BUCKET)
+    }
+    
     START <- min(ts$t.bucket) + OLD_WINDOW_SIZE
     STOP <- max(ts$t.bucket) - NEW_WINDOW_SIZE
     now <- START + OLD_WINDOW_SIZE
@@ -162,4 +167,25 @@ detection.with.state.signal.amp <- function(df,
     }
 
     data.frame(timestamp)
+}
+
+
+teams <- read.csv("/Users/astahlman/Documents/Programming/ML/td-stream/prototyping/R/teams.tsv", sep="\t", stringsAsFactors=F)$simple.name
+
+team.based.detection <- function(df,
+                                 OLD_WINDOW_SIZE=90000,
+                                 NEW_WINDOW_SIZE=10000,
+                                 STEP=5000,
+                                 BUCKET=5000,
+                                 THRESH=10) {
+    all.detections <- lapply(teams, FUN=function(team) {
+                                 df.for.team <- df[grep(team, df$text, ignore.case=T),]
+                                 ts <- as.ts.amp(df.for.team, BUCKET)
+                                 detections <- detection.with.state.signal.amp(ts=ts)
+                                 if (nrow(detections) > 0) {
+                                     detections$team <- team
+                                 }
+                                 return(detections)
+                             })
+    do.call("rbind.data.frame", all.detections)
 }

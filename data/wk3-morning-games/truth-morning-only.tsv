@@ -1,0 +1,61 @@
+team	players	description	reversed	nullified	week	scorer	timestamp	off-turnover	manual-adjustment	comments	time-since-last
+DAL	J.Randle	(14:03) J.Randle right end for 37 yards, TOUCHDOWN. Randle orginally ran off tackle before changing course and running around the end.	FALSE	FALSE	3	Joseph Randle	1443373567681	FALSE	FALSE		0
+NE	D.Lewis	(11:59) D.Lewis right guard for 8 yards, TOUCHDOWN.	FALSE	FALSE	3	Dion Lewis	1443373824986	FALSE	FALSE		257.305
+CIN	A.Dalton	(7:27) (No Huddle, Shotgun) A.Dalton scrambles up the middle for 7 yards, TOUCHDOWN.	FALSE	FALSE	3	Andy Dalton	1443374306871	FALSE	FALSE		481.885
+DAL	J.Randle	(7:12) J.Randle up the middle for 1 yard, TOUCHDOWN.	FALSE	FALSE	3	Joseph Randle	1443374353499	FALSE	FALSE		46.628
+HOU	R.Mallett+D.Hopkins	(5:02) (Shotgun) R.Mallett pass short right to D.Hopkins for 5 yards, TOUCHDOWN.	FALSE	FALSE	3	DeAndre Hopkins	1443374539055	FALSE	FALSE		185.556
+IND	F.Gore	(5:46) (Shotgun) F.Gore left guard for 1 yard, TOUCHDOWN.	FALSE	FALSE	3	Frank Gore	1443374588337	FALSE	FALSE		49.282
+ATL	D.Freeman	(3:05) D.Freeman left end for 3 yards, TOUCHDOWN.	FALSE	FALSE	3	Devonta Freeman	1443375035508	FALSE	FALSE		447.171
+NO	M.Ingram	(11:50) M.Ingram right end for 5 yards, TOUCHDOWN.	FALSE	FALSE	3	Mark Ingram	1443375513677	FALSE	FALSE		478.169
+IND	M.Mariota+D.Walker+D.Lowery+J.Thomas	(13:12) (Shotgun) M.Mariota pass short right intended for D.Walker INTERCEPTED by D.Lowery (J.Thomas) at IND 31. D.Lowery for 69 yards, TOUCHDOWN.	FALSE	FALSE	3	Dwight Lowery	1443375772015	TRUE	TRUE	Fixed team	258.338
+NYJ	R.Quigley+D.Sproles	(12:32) R.Quigley punts 54 yards to PHI 11, Center-T.Purdum. D.Sproles for 89 yards, TOUCHDOWN.	FALSE	FALSE	3	Darren Sproles	1443376001756	FALSE	TRUE	Fixed team	229.741
+CIN	M.Jones+A.Dalton	(12:23) (No Huddle) A.Dalton pass deep middle to M.Jones for 16 yards, TOUCHDOWN. No. 23 - Lewis (BAL) injured on play.	FALSE	FALSE	3	Marvin Jones	1443376203202	FALSE	FALSE		201.446
+TEN	J.Poutasi	(9:34) A.Andrews right tackle for 13 yards, TOUCHDOWN NULLIFIED by Penalty. PENALTY on TEN-J.Poutasi, Offensive Holding, 10 yards, enforced at IND 13 - No Play.	FALSE	TRUE	3	Antonio Andrews	1443376203370	FALSE	FALSE		0.168
+CAR	R.Brockel	(5:55) (Shotgun) C.Newton pass short left to G.Olsen for 4 yards, TOUCHDOWN NULLIFIED by Penalty. PENALTY on CAR-R.Brockel, Offensive Pass Interference, 10 yards, enforced at NO 4 - No Play.	FALSE	TRUE	3	Greg Olsen	1443376327247	FALSE	FALSE		123.877
+MIN	A.Peterson	(9:09) (Run formation) A.Shepherd reported in as eligible.  A.Peterson right guard for 2 yards, TOUCHDOWN.	FALSE	FALSE	3	Adrian Peterson	1443376369425	FALSE	FALSE		42.178
+CAR	C.Newton+G.Olsen	(5:48) (No Huddle, Shotgun) C.Newton pass short right to G.Olsen for 11 yards, TOUCHDOWN.	FALSE	FALSE	3	Greg Olsen	1443376435754	FALSE	FALSE		66.329
+DAL	D.McFadden	(7:31) D.McFadden left end for 2 yards, TOUCHDOWN.	FALSE	FALSE	3	Darren McFadden	1443376502163	FALSE	FALSE		66.409
+PIT	L.Bell	(13:04) L.Bell right guard for 1 yard, TOUCHDOWN. The Replay Official reviewed the runner broke the plane ruling, and the play was Upheld. The ruling on the field stands.	FALSE	FALSE	3	Le'Veon Bell	1443376773622	FALSE	FALSE		271.459
+OAK	A.Holmes+D.Carr	(6:49) (Shotgun) D.Carr pass short middle to A.Holmes for 3 yards, TOUCHDOWN.	FALSE	FALSE	3	Andre Holmes	1443377003030	FALSE	FALSE		229.408
+PHI	L.Williams+R.Mathews+S.Bradford	(5:03) (No Huddle, Shotgun) S.Bradford pass short right to R.Mathews for 23 yards, TOUCHDOWN [L.Williams].	FALSE	FALSE	3	Ryan Mathews	1443377379216	FALSE	FALSE		376.186
+TB	J.Winston+C.Sims	(4:01) (Shotgun) J.Winston pass short left to C.Sims for 32 yards, TOUCHDOWN.	FALSE	FALSE	3	Charles Sims	1443377477449	FALSE	FALSE		98.233
+ATL	D.Freeman	(2:23) (Shotgun) D.Freeman up the middle for 2 yards, TOUCHDOWN.	FALSE	FALSE	3	Devonta Freeman	1443377494496	FALSE	FALSE		17.047
+TEN	M.Mariota+K.Wright	(:24) (Shotgun) M.Mariota pass short left to K.Wright for 7 yards, TOUCHDOWN.	FALSE	FALSE	3	Kendall Wright	1443377909077	FALSE	FALSE		414.581
+CIN	B.Trawick+A.Dalton+T.Eifert	(2:00) A.Dalton pass short left to T.Eifert for 2 yards, TOUCHDOWN. The Replay Official reviewed the incomplete pass ruling, and the play was REVERSED. A.Dalton pass incomplete short left to T.Eifert (B.Trawick).	TRUE	FALSE	3	Tyler Eifert	1443378008103	FALSE	FALSE		99.026
+SD	P.Rivers+K.Allen	(1:25) (Shotgun) P.Rivers pass deep left to K.Allen for 34 yards, TOUCHDOWN. MIN-X.Rhodes was injured during the play.	FALSE	FALSE	3	Keenan Allen	1443378032843	FALSE	FALSE		24.74
+PHI	D.Sproles	(2:16) (No Huddle) D.Sproles left tackle for 1 yard, TOUCHDOWN. PHI-A.Gardner was injured during the play.	FALSE	FALSE	3	Darren Sproles	1443378073114	FALSE	FALSE		40.271
+DAL	J.Randle	(:46) J.Randle up the middle for 1 yard, TOUCHDOWN. The Replay Official reviewed the runner broke the plane ruling, and the play was Upheld. The ruling on the field stands.	FALSE	FALSE	3	Joseph Randle	1443378119900	FALSE	FALSE		46.786
+NE	T.Brady+D.Amendola	(:22) T.Brady pass short middle to D.Amendola for 1 yard, TOUCHDOWN. NE 12-Brady 400 career TD passes, 4th most all-time.	FALSE	FALSE	3	Danny Amendola	1443378173940	FALSE	FALSE		54.04
+OAK	S.Roberts+D.Carr	(:24) (Shotgun) D.Carr pass short left to S.Roberts for 13 yards, TOUCHDOWN.	FALSE	FALSE	3	Seth Roberts	1443378343671	FALSE	FALSE		169.731
+NYJ	R.Fitzpatrick+B.Marshall	(:12) (Shotgun) R.Fitzpatrick pass deep right to B.Marshall for 16 yards, TOUCHDOWN.	FALSE	FALSE	3	Brandon Marshall	1443378787295	FALSE	FALSE		443.624
+NO	M.Murphy+B.Nortman	(12:52) B.Nortman punts 55 yards to NO 26, Center-J.Jansen. M.Murphy for 74 yards, TOUCHDOWN.	FALSE	FALSE	3	Marcus Murphy	1443379383730	FALSE	TRUE	Fixed team	596.435
+MIN	A.Peterson	(12:44) A.Peterson right end for 43 yards, TOUCHDOWN.	FALSE	FALSE	3	Adrian Peterson	1443379481217	FALSE	FALSE		97.487
+TEN	A.Andrews	(9:57) A.Andrews left end for 8 yards, TOUCHDOWN.	FALSE	FALSE	3	Antonio Andrews	1443379895105	FALSE	FALSE		413.888
+CAR	C.Newton+G.Olsen	(8:48) (No Huddle, Shotgun) C.Newton pass short middle to G.Olsen for 11 yards, TOUCHDOWN.	FALSE	FALSE	3	Greg Olsen	1443379985480	FALSE	FALSE		90.375
+TEN	M.Mariota+D.Green-Beckham	(9:41) (Shotgun) M.Mariota pass short right to D.Green-Beckham for 3 yards, TOUCHDOWN.	FALSE	FALSE	3	Dorial Green-Beckham	1443380260772	FALSE	FALSE		275.292
+NE	L.Blount	(9:07) S.Mason reported in as eligible.  L.Blount up the middle for 1 yard, TOUCHDOWN.	FALSE	FALSE	3	LeGarrette Blount	1443380435499	FALSE	FALSE		174.727
+BAL	J.Flacco+S.Smith	(6:37) (Shotgun) J.Flacco pass short right to S.Smith for 50 yards, TOUCHDOWN. No. 27 - Kilpatrick (CIN) injured on play. Smith makes catch at CIN45, breaks two tackles and runs down right sideline for TD.	FALSE	FALSE	3	Steve Smith	1443380451144	FALSE	FALSE		15.645
+ATL	J.Jones+M.Ryan	(7:16) (Shotgun) M.Ryan pass deep right to J.Jones for 45 yards, TOUCHDOWN. Pass complete on a post pattern.	FALSE	FALSE	3	Julio Jones	1443380713734	FALSE	FALSE		262.59
+MIN	Z.Line	(2:45) A.Shepherd reported in as eligible.  Z.Line right guard for 1 yard, TOUCHDOWN.	FALSE	FALSE	3	Zach Line	1443380953218	FALSE	FALSE		239.484
+JAC	B.Bortles+A.Hurns	(6:25) (Shotgun) B.Bortles pass deep right to A.Hurns for 59 yards, TOUCHDOWN.	FALSE	FALSE	3	Allen Hurns	1443380983300	FALSE	FALSE		30.082
+TB	J.Winston+J.Joseph	(7:28) J.Winston pass deep right to V.Jackson for 23 yards, TOUCHDOWN. The Replay Official reviewed the pass completion ruling, and the play was REVERSED. J.Winston pass incomplete deep right (J.Joseph).	TRUE	FALSE	3	Vincent Jackson	1443381148199	FALSE	FALSE		164.899
+NE	T.Brady+K.Martin	(3:25) (Shotgun) T.Brady pass short left to K.Martin for 13 yards, TOUCHDOWN.	FALSE	FALSE	3	Keshawn Martin	1443381451735	FALSE	FALSE		303.536
+CLE	G.Barnidge+J.McCown	(3:38) J.McCown pass deep right to G.Barnidge for 28 yards, TOUCHDOWN.	FALSE	FALSE	3	Gary Barnidge	1443381616707	FALSE	FALSE		164.972
+SD	P.Rivers+S.Johnson+C.Greenway	(14:17) (Shotgun) P.Rivers pass short middle intended for S.Johnson INTERCEPTED by C.Greenway at MIN 9. C.Greenway for 91 yards, TOUCHDOWN. PENALTY on MIN, Unsportsmanlike Conduct, 15 yards, enforced between downs. Penalty on MIN Bench	FALSE	FALSE	3	Chad Greenway	1443381952143	TRUE	FALSE		335.436
+NE	L.Blount	(15:00) S.Mason reported in as eligible.  L.Blount up the middle for 1 yard, TOUCHDOWN.	FALSE	FALSE	3	LeGarrette Blount	1443382092352	FALSE	FALSE		140.209
+ATL	D.Freeman	(11:30) D.Freeman up the middle for 7 yards, TOUCHDOWN.	FALSE	FALSE	3	Devonta Freeman	1443382124882	FALSE	FALSE		32.53
+OAK	L.Murray	(14:32) (No Huddle, Shotgun) L.Murray right guard for 6 yards, TOUCHDOWN.	FALSE	FALSE	3	Latavius Murray	1443382281960	FALSE	FALSE		157.078
+CAR	C.Newton	(9:39) C.Newton left end for 13 yards, TOUCHDOWN.	FALSE	FALSE	3	Cam Newton	1443382620566	FALSE	FALSE		338.606
+NYJ	J.Kerley+R.Fitzpatrick	(9:41) R.Fitzpatrick pass short right to J.Kerley for 7 yards, TOUCHDOWN.	FALSE	FALSE	3	Jeremy Kerley	1443382707619	FALSE	FALSE		87.053
+IND	P.Dorsett+A.Luck	(6:58) (Shotgun) A.Luck pass deep middle to P.Dorsett for 35 yards, TOUCHDOWN.	FALSE	FALSE	3	Phillip Dorsett	1443382848037	FALSE	FALSE		140.418
+IND	A.Luck+D.Moncrief	(5:59) (Shotgun) A.Luck pass short left to D.Moncrief for 11 yards, TOUCHDOWN.	FALSE	FALSE	3	Donte Moncrief	1443383195457	FALSE	FALSE		347.42
+ATL	J.Jones+M.Ryan	(3:09) (Shotgun) M.Ryan pass short right to J.Jones for 2 yards, TOUCHDOWN. Pass complete near right corner of the end zone off fake handoff to the left and roll right.	FALSE	FALSE	3	Julio Jones	1443383237261	FALSE	FALSE		41.804
+NE	L.Blount	(3:34) L.Blount right tackle for 1 yard, TOUCHDOWN. NE 35 1st downs ties franchise record (10/7/12 vs Denver)	FALSE	FALSE	3	LeGarrette Blount	1443383266161	FALSE	FALSE		28.9
+NO	K.Robinson	(4:55) K.Robinson left end for 2 yards, TOUCHDOWN.	FALSE	FALSE	3	Khiry Robinson	1443383313273	FALSE	FALSE		47.112
+HOU	A.Blue	(9:19) A.Blue left tackle for 20 yards, TOUCHDOWN.	FALSE	FALSE	3	Alfred Blue	1443383434739	FALSE	FALSE		121.466
+BAL	E.Dumervil+C.Mosley+A.Dalton	(7:02) (Shotgun) A.Dalton sacked at CIN 38 for -6 yards (E.Dumervil). FUMBLES (E.Dumervil), RECOVERED by BAL-C.Mosley at CIN 41. C.Mosley for 41 yards, TOUCHDOWN.	FALSE	FALSE	3	C.J. Mosley	1443383508026	TRUE	TRUE	Fixed team	73.287
+CLE	T.Benjamin+J.McCown	(6:32) (Shotgun) J.McCown pass short right to T.Benjamin for 4 yards, TOUCHDOWN.	FALSE	FALSE	3	Travis Benjamin	1443383747143	FALSE	FALSE		239.117
+IND	F.Gore	(2:57) (Shotgun) F.Gore right end for 6 yards, TOUCHDOWN.	FALSE	FALSE	3	Frank Gore	1443383816129	FALSE	FALSE		68.986
+SD	K.Clemens+K.Allen	(:36) (Shotgun) K.Clemens pass deep middle to K.Allen for 19 yards, TOUCHDOWN.	FALSE	FALSE	3	Keenan Allen	1443383893907	FALSE	FALSE		77.778
+CIN	A.Dalton+A.Green	(6:49) (Shotgun) A.Dalton pass deep left to A.Green for 80 yards, TOUCHDOWN.	FALSE	FALSE	3	A.J. Green	1443383894306	FALSE	FALSE		0.399
+JAC	C.Harbor+B.Bortles	(1:27) (No Huddle, Shotgun) B.Bortles pass short middle to C.Harbor for 6 yards, TOUCHDOWN.	FALSE	FALSE	3	Clay Harbor	1443383960189	FALSE	FALSE		65.883

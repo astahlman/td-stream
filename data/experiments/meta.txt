@@ -1,0 +1,14 @@
+This file has tweets that are a response to a Cowboys touchdown but
+mention the Falcons removed, just to see what the signal would look
+like if we could automate this. I'm just making a judgement call on whether
+I think the classifier could classify the tweet as not related to the
+Falcons.
+
+For example, this tweet stays:
+
+{"text":"@Mule_Rock so far so good Cowboys moved from the 20 all the
+way down to the Falcons touchdown in three plays yeah
+baby","timestamp_ms":"1443373584145"}
+
+Because it contains the text "Falcons touchdown" and I don't expect
+any classifier I build to be that smart.

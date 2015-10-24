@@ -6,7 +6,7 @@ BUCKET.MILLIS = 5000
 load.data <- function(f=sample.data, bucket.millis=BUCKET.MILLIS) {
     df <- lapply(readLines(f), fromJSON)
     df <- data.frame(do.call("rbind", df), stringsAsFactors=F)
-    names(df) <- c("timestamp", "text")
+    names(df)[names(df) == "timestamp_ms"] <- "timestamp"
     df$timestamp <- as.numeric(df$timestamp)
     
     is.touchdown <- function(text) {
@@ -27,8 +27,10 @@ load.data <- function(f=sample.data, bucket.millis=BUCKET.MILLIS) {
     return(df)
 }
 
-load.all.data <- function(path="../../data/json/raw/") {
-    files <- dir(path, full.names=T)
+load.all.data <- function(base.dir="../../data/json/raw/", files=NULL) {
+    if (is.null(files)) {
+        files <- dir(base.dir, full.names=T)
+    }
     all.dfs <- lapply(files,
                       function(f) {
                           d <- load.data(f)

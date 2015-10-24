@@ -16,9 +16,9 @@ expected$timestamp <- as.numeric(as.character(expected$timestamp))
 benchmark <- function(actual, exp, check.players=F) {
 
     if (check.players) {
-        checked.cols <- c("timestamp", "player")
+        checked.cols <- c("timestamp", "team", "player")
     } else {
-        checked.cols <- c("timestamp")
+        checked.cols <- c("timestamp", "team")
     }
     
     if (length(actual) == 0) {
@@ -75,7 +75,7 @@ benchmark <- function(actual, exp, check.players=F) {
 ## corresponding to detection x, if the actual touchdown exists
 find.match <- function(actuals, x) {
     
-    THRESHOLD <-  30 * 1000 # x must fall in actual + THRESHOLD to be a match
+    THRESHOLD <-  60 * 1000 # x must fall in actual + THRESHOLD to be a match
     x <- data.frame(x)
     actuals <- data.frame(actuals)
     if (nrow(x) == 0) {
