@@ -38,8 +38,8 @@ do.detections <- function(df=NULL,
 }
 
 mad.threshold <- function(ts,
-                           OLD_WINDOW_SIZE=90000) {
-    threshold <- 10
+                           OLD_WINDOW_SIZE=30000) {
+    threshold <- 3
     min.thresh <- .05
     ut <- function(x) {
         m = median(x)
@@ -61,9 +61,9 @@ signal.for.team <- function(tweets, team) {
     df <- data.frame(tweets[,c("timestamp", "text")])
     df$char.count <- nchar(df$text)
     df$t.bucket <- ceiling(df$timestamp / bucket.ms) * bucket.ms
-    df$mentions.team <- FALSE
+    #df$mentions.team <- FALSE
     #df[grep(team, tweets$text, ignore.case=T), "mentions.team"] <- TRUE
-    df$mentions.team <- grepl(team, tweets$text, ignore.case=T)
+    df$mentions.team <- grepl(team, tweets$text, ignore.case=T) & !tweets$is.retweet
     ts <- ddply(df, "t.bucket", summarise,
                 num.mentions = sum(mentions.team),
                 mean.len = mean(char.count),

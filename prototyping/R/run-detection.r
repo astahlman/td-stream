@@ -1,5 +1,5 @@
 source("benchmark.r")
-source("detect-touchdowns.r")
+source("candidates/opponent-aware-team-based-regex-mad.r")
 source("load-tweets.r")
 
 ## Takes a set of raw-tweets files and a ground-truth for the detections
@@ -12,8 +12,9 @@ setwd(base.dir)
 
 
 tweets <- load.all.data(files=tweet.files)
-#detections <- detection.with.state.signal.amp(tweets)
-detections <- team.based.detection(tweets)
+detections <- df.detection(tweets)$detections
 truth <- read.csv(file=truth.file, sep="\t")
+truth$team <- as.character(truth$team)
+
 results <- benchmark(detections, truth)
 score <- score.benchmark(results)

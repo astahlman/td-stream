@@ -19,7 +19,7 @@ matchups.map <- append(home.first, away.first)
 mad.threshold <- function(ts,
                           old.window.ms=180000,
                           bucket.ms=5000,
-                          thresh=6,
+                          threshold=6,
                           min.thresh=.05) {
     ut <- function(x) {
         m = median(x)
@@ -83,9 +83,9 @@ df.detection <- function(tweets,
                          min.thresh=.05,
                          bucket.ms=5000,
                          num.lags=1, # == two buckets where val > thresh
-                         td.timeout=180) {
+                         td.timeout.ms=180000) {
 
-    tweets <- tweets[which(!tweets$is.retweet),]
+    tweets <- tweets[which(!tweets$is.retweet),] # don't use retweets
     
     abbrev.for.team <- function(name) { teams[which(teams$simple.name == name), "abbrev"] }
 
@@ -119,16 +119,35 @@ df.detection <- function(tweets,
                              r[which(r$val.home > r$val.away), "noisier.team"] <- r$team.home[[1]]
                              r[which(r$val.away > r$val.home), "noisier.team"] <- r$team.away[[1]]
 
-                             r$noisier.team.lag.1 <- lagpad(r$noisier.team, 1)
-                             r$noisier.team.lag.2 <- lagpad(r$noisier.team, 2)
-                             r$noisier.team.lag.3 <- lagpad(r$noisier.team, 3)
-                             
-                             r$is.td.home <- r$val.home >= r$thresh.home & r$noisier.team == r$team.home & r$noisier.team.lag.1 == r$team.home #& r$noisier.team.lag.2 == r$team.home & r$noisier.team.lag.3 == r$team.home 
-                             r$is.td.away <- r$val.away >= r$thresh.away & r$noisier.team == r$team.away & r$noisier.team.lag.1 == r$team.away #& r$noisier.team.lag.2 == r$team.away & r$noisier.team.lag.3 == r$team.away
 
-                             three.minutes <- 36
-                             r$is.td.home <- wipe.subsequent.n(r$is.td.home, three.minutes)
-                             r$is.td.away <- wipe.subsequent.n(r$is.td.away, three.minutes)
+                             for (i in 1:num.lags) {
+                                 r[[paste("noisier.team.lag.", i, sep="")]] <- lagpad(r$noisier.team, i)
+                             }
+                         
+                             r$is.td.home <- r$val.home >= r$thresh.home & r$noisier.team == home
+                             r$is.td.away <- r$val.away >= r$thresh.away & r$noisier.team == away
+                             
+                             lag.indices <- which(names(r) %in% sapply(1:num.lags,
+                                                                       function(i) {
+                                                                           paste("noisier.team.lag.", i, sep="")
+                                                                       }))
+
+                             r$is.td.home <- r$is.td.home &
+                                 apply(r, 1,
+                                       function(row) {
+                                           Reduce(`&`, row[lag.indices] == home)
+                                       })
+
+
+                             r$is.td.away <- r$is.td.away &
+                                 apply(r, 1,
+                                       function(row) {
+                                           Reduce(`&`, row[lag.indices] == away)
+                                       })
+
+                             buckets.to.wipe <- ceiling(td.timeout.ms / bucket.ms)
+                             r$is.td.home <- wipe.subsequent.n(r$is.td.home, buckets.to.wipe)
+                             r$is.td.away <- wipe.subsequent.n(r$is.td.away, buckets.to.wipe)
                              return(r)
                          })
 
@@ -142,4 +161,33 @@ df.detection <- function(tweets,
     result <- result[,c("t.bucket", "team")]
     names(result) <- c("timestamp", "team")
     return(list(detections=result, signals=h2h.signals))
+}
+
+make.variables <- function() {
+    window.ms <- c(90, 120, 180) * 1000
+    bucket.ms <- c(2500, 5000, 10000)
+    thresh.mult <- c(3, 6, 9)
+    min.thresh <- c(0.03, 0.06, 0.09)
+    num.lags <- 1:2
+    vars <- expand.grid(window.ms, bucket.ms, thresh.mult, min.thresh, num.lags)
+    apply(vars, 1, function(r) {
+        r <- as.list(r)
+        names(r) <- c("window.ms", "bucket.ms", "thresh.mult", "min.thresh", "num.lags")
+        r
+    })
+}
+
+get.candidates <- function() {
+    fs <- lapply(make.variables(), function(vars) {
+        this.f <- df.detection ## capture the current function
+        return(list(
+            description=paste(
+                "Opponent away team based regex with these params:",
+                paste(vars, collapse=",")),
+            f=function(tweets) {
+                vars[["tweets"]] <- tweets
+                do.call(this.f, vars)
+            }))
+    })
+    return(fs)
 }

@@ -64,6 +64,8 @@ benchmark <- function(actual, exp, check.players=F) {
 
     false.pos <- data.frame(rbind(false.pos, duplicates))
     names(false.pos) <- checked.cols
+    rownames(false.pos) <- 1:nrow(false.pos)
+    rownames(false.neg) <- 1:nrow(false.neg)
     
     result <- list("true.pos"=true.pos,
                    "false.neg"=false.neg,
