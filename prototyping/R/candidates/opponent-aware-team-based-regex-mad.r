@@ -6,16 +6,6 @@ teams <- read.csv(file="teams.tsv", sep="\t", stringsAsFactors=F)
 
 matchups <- read.csv(file="/Users/astahlman/Documents/Programming/ML/td-stream/data/wk3-morning-games/fixtures.tsv", sep="\t")[,c("home", "away")]
 
-away.first <- as.list(setNames(
-    as.character(matchups$away),
-    as.character(matchups$home)))
-
-home.first <- as.list(setNames(
-    as.character(matchups$home),
-    as.character(matchups$away)))
-
-matchups.map <- append(home.first, away.first)
-
 mad.threshold <- function(ts,
                           old.window.ms=180000,
                           bucket.ms=5000,
