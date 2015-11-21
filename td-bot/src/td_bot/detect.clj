@@ -2,7 +2,8 @@
   (:require [clojure.test :refer :all]
             [td-bot.metrics :as metrics]
             [clojure.tools.logging :as log]
-            [td-bot.stats :as stats])
+            [td-bot.stats :as stats]
+            [td-bot.signal :as signal])
   (:import [td_bot.signal DataPoint]))
 
 (def ^:const old-window-sz 36) ;; 36 data points
@@ -12,8 +13,9 @@
 (defn- thresh
   ([xs] (thresh xs 6 0.05))
   ([xs multiplier min-val]
+   (def xs-capture xs)
    (let [m (stats/median xs)
-         abs-dev-from-median (map #(Math/abs (- % m)) xs)]
+         abs-dev-from-median (map #(Math/abs ^Double (- % m)) (map float xs))]
      (max min-val
           (+ m (* multiplier (stats/median abs-dev-from-median)))))))
 
@@ -23,16 +25,23 @@
   (testing "The threshold can't be below some lower-bound (0.05 by default)"
     (is (= 0.05 (thresh [0 0 1])))))
 
+(declare detect-in-matchup)
 (declare find-td)
 
-(defn detect-tds [home away detection-log]
+;; hardcoding PHI-DAL for now...
+(defn detect-tds [signals detection-log]
+  (let [phi {:team :PHI :signal (signal/read-signal signals :PHI)}
+        dal {:team :DAL :signal (signal/read-signal signals :DAL)}]
+    (detect-in-matchup phi dal detection-log)))
+
+(defn detect-in-matchup [home away detection-log]
   (let [now (last (sort (map :t (concat (:signal home) (:signal away)))))
         last-td (last (sort (map :happened-at detection-log)))
         time-since-last-td (if (and now last-td) (- now last-td))
         in-freeze? (and time-since-last-td (<= time-since-last-td detection-freeze-ms))]
-    (println last-td)
-    (if (not in-freeze?)
-      (find-td home away))))
+    (if-let [new-td (and (not in-freeze?) (find-td home away))]
+      (conj detection-log new-td)
+      detection-log)))
 
 (with-test
   (defn- noisier [home away]
@@ -49,7 +58,8 @@
       (split-window (range 1 37))))
 
 (with-test
-  (defn the-only [xs]
+  (defn the-only
+    [xs]
     (let [s (into #{} xs)]
       (if (= 1 (count s))
         (first s))))
@@ -89,24 +99,24 @@
   (testing "We can detect really obvious touchdowns"
     (is (= {:happened-at 95000
             :team :PIT}
-           (detect-tds {:signal (big-spike-at 95000 (flatline 0 100000))
-                        :team :PIT}
-                       {:signal (flatline 0 100000)
-                        :team :CIN}
-                       nil))))
+           (detect-in-matchup {:signal (big-spike-at 95000 (flatline 0 100000))
+                               :team :PIT}
+                              {:signal (flatline 0 100000)
+                               :team :CIN}
+                              nil))))
   (testing "We don't detect touchdowns if the signals are flat"
-    (is (nil? (detect-tds {:signal (flatline 0 100000)
-                           :team :PIT}
-                          {:signal (flatline 0 100000)
-                           :team :CIN}
-                          nil))))
+    (is (nil? (detect-in-matchup {:signal (flatline 0 100000)
+                                  :team :PIT}
+                                 {:signal (flatline 0 100000)
+                                  :team :CIN}
+                                 nil))))
   (testing "We ignore huge spikes during the freeze period after a touchdown"
-    (is (nil? (detect-tds {:signal (big-spike-at 175000 (flatline 0 180000))
-                           :team :PIT}
-                          {:signal (flatline 0 180000)
-                           :team :CIN}
-                          [{:happened-at 0
-                            :team :PIT}])))))
+    (is (nil? (detect-in-matchup {:signal (big-spike-at 175000 (flatline 0 180000))
+                                  :team :PIT}
+                                 {:signal (flatline 0 180000)
+                                  :team :CIN}
+                                 [{:happened-at 0
+                                   :team :PIT}])))))
 
 (defn flatline
   "Flat zero from start to end, inclusive, by 5000"

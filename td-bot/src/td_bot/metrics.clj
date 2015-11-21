@@ -38,7 +38,7 @@
    (sort-by (comp :total second)
             (let [m @metrics]
               (into {}
-                    (for [[label times] m]
+                    (for [[label times] (:timers m)]
                       [label {:mean (double (stats/mean times))
                               :median (stats/median times)
                               :n (count times)
@@ -47,7 +47,7 @@
 
 ;; We aren't being smart about how many data points to keep,
 ;; so keeping this on in production would eventually exhaust the heap
-(def should-instrument false)
+(def should-instrument true)
 
 ;; TODO: Use the Metrics library for this
 (defmacro timed

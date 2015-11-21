@@ -4,7 +4,8 @@
         [td-bot.utils :only [find-start-time]])
   (:require [td-bot.bot :as bot]
             [td-bot.identification :as id]
-            [clojure.test :refer :all]))
+            [clojure.test :refer :all])
+  (:import [td_bot.bot TestClock]))
 
 (with-test
   (defn precision [{:keys [true-pos false-pos]}]
@@ -40,8 +41,7 @@
 
 (defn test-clock-with-start [start]
   "Return a clock that increments one-second on every tick with the given start time"
-  (fn [_ last-t]
-    (+ 1000 (or last-t start))))
+  (TestClock. start 2000))
 
 ;; starts at beginning of DAL-PHI game
 (def test-clock
@@ -55,7 +55,9 @@
   ([file]
    (conj (bot/system) {:clock test-clock
                        :tweet-stream (file-stream file)
-                       :scorer-ider (partial id/identify-scorer id/roster-snapshot)})))
+                       ;:scorer-ider (partial id/identify-scorer
+                       ;id/roster-snapshot)
+                       })))
 
 (declare false-neg-and-true-pos)
 
@@ -155,14 +157,16 @@
 (defn- score-player-id [labelled-results]
   "Return the ratio of correct identifications for player and team"
   (let [tp (:true-pos labelled-results)]
-    (letfn [(match? [k1 k2]
-              #(apply = ((juxt k1 k2) %)))]
-      (hash-map :player-score (/ (count
-                                  (filter (match? :player :identified-player) tp))
-                                 (count tp))
-                :team-score (/ (count
-                                (filter (match? :team :identified-team) tp))
-                               (count tp))))))
+    (if (zero? (count tp))
+      0
+      (letfn [(match? [k1 k2]
+                #(apply = ((juxt k1 k2) %)))]
+        (hash-map :player-score (/ (count
+                                    (filter (match? :player :identified-player) tp))
+                                   (count tp))
+                  :team-score (/ (count
+                                  (filter (match? :team :identified-team) tp))
+                                 (count tp)))))))
 
 (deftest identification
   (testing "The identification function scores along both the player and team dimensions"
@@ -190,11 +194,11 @@
    (let [detections (atom ())
          save-detection (fn [td] (do
                                   (swap! detections conj td)))
-         bot (update-in bot [:id-hook] (fn [old-hook]
-                                          (fn [td]
-                                            (do
-                                              (old-hook td)
-                                              (save-detection td)))))
+         bot (update-in bot [:td-hook] (fn [old-hook]
+                                        (fn [td]
+                                          (do
+                                            (old-hook td)
+                                            (save-detection td)))))
          indefinitely (fn [_] true)]
      (bot/main-loop indefinitely bot)
      (let [raw-detections @detections

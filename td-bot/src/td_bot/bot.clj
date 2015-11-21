@@ -1,6 +1,7 @@
 (ns td-bot.bot
   (:require
-   [td-bot.detection :as detect]
+   [td-bot.detect :as detect]
+   [td-bot.signal :as signal]
    [td-bot.tweet :as tweet]
    [td-bot.identification :as identify]
    [td-bot.metrics :as metric]
@@ -8,45 +9,43 @@
 
 (declare simple-alert)
 
+(defprotocol Clock
+  (tick [this])
+  (now [this]))
+
+(deftype SystemClock []
+  Clock
+  (tick [this])
+  (now [this] (System/currentTimeMillis)))
+
+(deftype TestClock [t increment]
+  Clock
+  (tick [this] (TestClock. (+ t increment) increment))
+  (now [this] t))
+
 (defn system []
   "Returns a new instance of the application."
   (metric/reset-metrics!)
   (hash-map
-   :id-hook simple-alert
-   :clock (fn [_ _] (System/currentTimeMillis))
+   :td-hook simple-alert
+   :clock (SystemClock.)
    :tweet-stream (tweet/create-stream)
-   :td-detector detect/detect-tds
-   :scorer-ider identify/identify-scorer))
+   :td-detector detect/detect-tds))
 
-(defn loop-step [now new-tweets signal pending-id & {:keys [td-detector alarm-val scorer-ider id-hook]}]
-  "Takes the current time, a list of tweets, and a buffer of touchdowns
-   pending identification, and mark any new touchdowns
-   occurring in the last 30 seconds as pending identification. Mark any
-   pending touchdowns as identified if their team and player can be identified."
-  (let [detection-results (metric/timed :detection (td-detector {:alarm-val alarm-val
-                                                                 :new-tweets new-tweets
-                                                                 :signal signal}))
-        tds (map #(hash-map :happened-at % :detected-at now) (:detections detection-results))
-        pending-id (concat tds pending-id)
-        maybe-identified (map #(conj %
-                                     (scorer-ider (map :text new-tweets)))
-                              pending-id)
-        identified? #(contains? % :player)
-        got-identified (filter identified? maybe-identified)
-        still-pending (filter (complement identified?) maybe-identified)
-        to-broadcast (map #(assoc % :identified-at now) got-identified)]
-    (when (seq to-broadcast)
-      (dorun (println (str "broadcasting: " (seq to-broadcast))))
-      (dorun (map id-hook to-broadcast)))
-    {:signal (:signal detection-results)
-     :pending (seq still-pending)
-     :identified (seq to-broadcast)
-     :alarm-val (:alarm-val detection-results)}))
-
-(defn- simple-alert [{:keys [player team]}]
-  (let [msg (str "TOUCHDOWN!!! " player " just scored a touchdown for the " team ". Hooray!")]
-    (log/info msg))
+(defn- simple-alert [{:keys [team happened-at]}]
+  (println (str "TOUCHDOWN!!! By the " team " @ " happened-at ". Hooray!"))
   (metric/mark-meter! "touchdowns"))
+
+(def captured-td-signals (atom []))
+(defn- capture-signal [signals td-alerts]
+  (swap! captured-td-signals
+         (fn [captures]
+           (reduce (fn [result {:keys [team happened-at]}]
+                     (conj result {:team team
+                                   :t happened-at
+                                   :signal (signal/read-signal signals team)}))
+                   captures
+                   td-alerts))))
 
 (defn main-loop 
   "Do this constantly until continue? returns false or we run out of tweets"
@@ -54,41 +53,34 @@
    (main-loop (constantly true)))
   ([continue?]
    (main-loop continue? (system)))
-  ([continue? {:keys [tweet-stream td-detector scorer-ider id-hook clock]}]
+  ([continue? {:keys [tweet-stream td-detector td-hook clock]}]
    (log/info "Starting bot...")
    (let [{close-stream :close read-stream :read} tweet-stream]
-     (loop [pending nil
-            broadcasted 0
-            signal nil
-            i 1
-            last-time nil
-            alarm-val nil]
-       (let [now (clock i last-time)
-             new-tweets (metric/timed :read-tweets (read-stream now))]
-         (if (and new-tweets (continue? i))
-           (let [results (loop-step
-                          now
-                          new-tweets
-                          signal
-                          pending
-                          :td-detector td-detector
-                          :alarm-val alarm-val
-                          :scorer-ider scorer-ider
-                          :id-hook id-hook)
-                 identified (:identified results)
-                 pending (:pending results)
-                 signal (:signal results)
-                 alarm-val (:alarm-val results)]
-             (recur pending
-                    (+ broadcasted (count identified))
-                    signal
-                    (inc i)
-                    now
-                    alarm-val))
-           (do
-             (log/info "Closing bot...")
-             (close-stream)
-             {:broadcasted broadcasted
-              :pending (count pending)})))))))
+     (def the-td-hook td-hook)
+     (loop [detection-log nil
+            signals (signal/create-signals)
+            clock clock]
+       (if-let [new-tweets (and continue?
+                                (metric/timed :read-tweets
+                                              (read-stream (now clock))))]
+         (let [signals (metric/timed :update-signals
+                                     (signal/update-signals signals new-tweets))
+               extract-new-tds (fn [new-detection-log]
+                                 (seq (clojure.set/difference
+                                       (into #{} new-detection-log)
+                                       (into #{} detection-log))))
+               old-count (count detection-log)
+               detection-log (metric/timed :detection
+                                           (td-detector signals detection-log))
+               new-tds (map #(assoc % :identified-at (now clock)) (extract-new-tds detection-log))]
 
-
+           (doall (map td-hook new-tds))
+           (capture-signal signals new-tds)
+           (recur detection-log
+                  signals
+                  (tick clock)))
+         (do
+           (log/info "Closing bot...")
+           (close-stream)
+           (def the-detection-log detection-log)
+           detection-log))))))

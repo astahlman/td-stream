@@ -11,7 +11,6 @@
 (def ^:private min-buckets 20)
 (def ^:private new-window-sz 2)
 
-
 (with-test
   (defn is-td? [text]
     (re-find #"(?i)touchdown" text))
