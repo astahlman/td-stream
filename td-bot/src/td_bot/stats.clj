@@ -22,12 +22,15 @@
   (defn median [xs]
     (loop [x (sort < xs)
            i 1]
-      (cond (= i (count x))
-            (first x)                
-            (= i (dec (count x)))
-            (/ (+ (first x) (second x)) 2)
-            :else
-            (recur (rest x) (inc i)))))
+      (cond
+        (not (seq x)) nil
+        (= i (count x))
+        (first x)                
+        (= i (dec (count x)))
+        (/ (+ (first x) (second x)) 2)
+        :else
+        (recur (rest x) (inc i)))))
   (is (= -5 (median [50000 -6 43 -99 -5])))
   (is (= 2 (median [1 2 3])))
-  (is (= 2.5 (float (median [1 2 3 4])))))
+  (is (= 2.5 (float (median [1 2 3 4]))))
+  (is (nil? (median '()))))

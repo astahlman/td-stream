@@ -36,16 +36,9 @@
   (println (str "TOUCHDOWN!!! By the " team " @ " happened-at ". Hooray!"))
   (metric/mark-meter! "touchdowns"))
 
-(def captured-td-signals (atom []))
-(defn- capture-signal [signals td-alerts]
-  (swap! captured-td-signals
-         (fn [captures]
-           (reduce (fn [result {:keys [team happened-at]}]
-                     (conj result {:team team
-                                   :t happened-at
-                                   :signal (signal/read-signal signals team)}))
-                   captures
-                   td-alerts))))
+(def captured-detections (atom []))
+(defn capture-detections [state]
+  (swap! captured-detections conj state))
 
 (defn main-loop 
   "Do this constantly until continue? returns false or we run out of tweets"
@@ -56,9 +49,8 @@
   ([continue? {:keys [tweet-stream td-detector td-hook clock]}]
    (log/info "Starting bot...")
    (let [{close-stream :close read-stream :read} tweet-stream]
-     (def the-td-hook td-hook)
      (loop [detection-log nil
-            signals (signal/create-signals)
+            signals nil
             clock clock]
        (if-let [new-tweets (and continue?
                                 (metric/timed :read-tweets
@@ -69,18 +61,20 @@
                                  (seq (clojure.set/difference
                                        (into #{} new-detection-log)
                                        (into #{} detection-log))))
-               old-count (count detection-log)
                detection-log (metric/timed :detection
                                            (td-detector signals detection-log))
-               new-tds (map #(assoc % :identified-at (now clock)) (extract-new-tds detection-log))]
-
+               new-tds (map #(assoc % :identified-at (now clock))
+                            (extract-new-tds detection-log))]
            (doall (map td-hook new-tds))
-           (capture-signal signals new-tds)
+           (when (seq new-tds)
+             (capture-detections {:now (now clock)
+                                  :new-tds new-tds
+                                  :signals signals
+                                  :new-tweets new-tweets}))
            (recur detection-log
-                  signals
+                  (signal/trim-signals signals)
                   (tick clock)))
          (do
            (log/info "Closing bot...")
            (close-stream)
-           (def the-detection-log detection-log)
            detection-log))))))

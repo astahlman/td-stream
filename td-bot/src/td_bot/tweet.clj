@@ -9,6 +9,9 @@
 (defn is-retweet? [tweet]
   (.startsWith (clojure.string/lower-case tweet) "rt"))
 
+(defn is-touchdown? [tweet]
+  (re-find #"(?i)touchdown" tweet))
+
 (defn json->tweet [raw-json]
   (->
    raw-json

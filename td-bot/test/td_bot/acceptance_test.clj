@@ -203,8 +203,8 @@
      (bot/main-loop indefinitely bot)
      (let [raw-detections @detections
            results (label-detections raw-detections true-tds)]
-       (println (str "Raw detections:" raw-detections))
-       (println (str "Results: " results))
+       (println (str "Raw detections:" (clojure.pprint/pprint raw-detections)))
+       (println (str "Results: " (clojure.pprint/pprint results)))
        (assoc results
               :detections raw-detections
               :f1-score (score-output results)

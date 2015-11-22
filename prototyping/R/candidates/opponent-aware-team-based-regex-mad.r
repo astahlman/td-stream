@@ -4,7 +4,7 @@ library("zoo")
 
 teams <- read.csv(file="teams.tsv", sep="\t", stringsAsFactors=F)
 
-matchups <- read.csv(file="/Users/astahlman/Documents/Programming/ML/td-stream/data/wk3-morning-games/fixtures.tsv", sep="\t")[,c("home", "away")]
+wk3.matchups <- read.csv(file="/Users/astahlman/Documents/Programming/ML/td-stream/data/wk3-morning-games/fixtures.tsv", sep="\t")[,c("home", "away")]
 
 mad.threshold <- function(ts,
                           old.window.ms=180000,
@@ -68,6 +68,7 @@ lagpad <- function(x, k) {
 }
 
 df.detection <- function(tweets,
+                         matchups=wk3.matchups,
                          window.ms=180000,
                          thresh.mult=6,
                          min.thresh=.05,
@@ -76,6 +77,10 @@ df.detection <- function(tweets,
                          td.timeout.ms=180000) {
 
     tweets <- tweets[which(!tweets$is.retweet),] # don't use retweets
+    
+    ## The 2014 tweet streams had search terms like "fg", "field goal", "int", etc.
+    tweets <- tweets[which(tweets$is_td),] # only use touchdowns
+
     
     abbrev.for.team <- function(name) { teams[which(teams$simple.name == name), "abbrev"] }
 

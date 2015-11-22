@@ -6,20 +6,67 @@
             [incanter.charts :refer [line-chart]]
             [incanter.core :refer [save]]))
 
-(declare all-signals)
-
-(defn update-signals [signals tweets]
-  (if-let [tweets (seq tweets)]
-    ((:update signals) tweets)
-    signals))
-
-(defn create-signals
-  ([] (all-signals nil))
-  ([tweets] (update-signals (create-signals) tweets)))
-
-(defn read-signal [signals team] ((:read signals) team))
+(def bucket-sz-ms 5000)
+;; TODO: Stop hard-coding this in two different places
+(def window-sz 38) ;; num data points
 
 (defrecord DataPoint [t magnitude])
+
+(declare update-signals)
+
+(defn create-signals [tweets]
+  (update-signals nil tweets))
+
+(declare discretize update-bucket)
+
+(defn update-signals
+  "Signals is a map where the keys are timestamps and the vals are buckets"
+  [signals tweets]
+  (let [bucket-sz-ms 5000
+        is-rt? (fn [tweet] (tweet/is-retweet? (:text tweet)))
+        is-td? (fn [tweet] (tweet/is-touchdown? (:text tweet)))
+        tweets-by-time (group-by :t
+                                 (->> tweets
+                                      (remove is-rt?)
+                                      (filter is-td?) ;; b/c of 2014 datasets
+                                      (discretize bucket-sz-ms)))]
+    (def the-tweets tweets)
+    (reduce (fn [buckets [t tweetz]]
+              (assoc buckets t (update-bucket (get buckets t) tweetz)))
+            signals
+            tweets-by-time)))
+
+(defn- fill-gaps [points]
+  (let [points-by-t (into {} (for [{:keys [t] :as point} points]
+                               [t point]))
+        [end-t start-t] [(apply max (keys points-by-t)) (apply min (keys points-by-t))]
+        window-range (range start-t end-t 5000)
+        flatline (into {} (for [t window-range] [t (DataPoint. t 0.0)]))]
+    (vals (merge flatline points-by-t))))
+
+(defn seq-range [xs]
+  [(apply min xs) (apply max xs)])
+
+(defn- fill-gaps [points]
+  (if points
+    (let [all-points (->> points
+                          (map :t)
+                          (apply max)
+                          (iterate #(- % 5000))
+                          (take window-sz)
+                          (into #{}))
+          missing-points (clojure.set/difference all-points (into #{} (map :t points)))]
+      (sort-by :t (concat (for [t missing-points] (DataPoint. t 0.0)) points)))))
+
+(defn- to-data-points [signals team]
+  (butlast
+   (for [[t {:keys [num-tweets total-chars mentions-by-team]}] (into (sorted-map) signals)]
+     (DataPoint. t (/ (get mentions-by-team team) (/ total-chars num-tweets))))))
+
+(defn read-signal [signals team]
+  (-> signals
+   (to-data-points team)
+   (fill-gaps)))
 
 (defn plot-signal [data-points]
   "Plot the given data points. Save to disk like this:
@@ -103,65 +150,89 @@
              [:t]
              round-up)) tweets))))
 
-(declare bucket)
+(def sample-bucket-1
+  {:num-tweets 5
+   :total-chars 437
+   :mentions-by-team {:PHI 4
+                      :DAL 11}})
 
-(defn empty-bucket [] (bucket 0 0 nil))
+(def sample-bucket-2
+  {:num-tweets 7
+   :total-chars 531
+   :mentions-by-team {:PHI 2
+                      :DAL 6}})
 
-(defn- create-bucket [tweets]
-  (bucket tweets))
+(def sample-signals
+  {5000 sample-bucket-1
+   10000 sample-bucket-2})
 
-(defn- bucket
-  "The magnitude of every team's signal in a given time bucket"
-  ([tweets]
-   ((:update (bucket 0 0 nil)) tweets))
-  ([num-tweets total-chars mentions-by-team]
-   (let [avg-tweet-length (if (> num-tweets 0)
-                            (/ total-chars num-tweets)
-                            Double/NaN)]
-     {:magnitude (fn [team]
-                   (if (not (Double/isNaN avg-tweet-length))
-                     (/ (get mentions-by-team team) avg-tweet-length)
-                     0.0))
-      :update (fn [tweets]
-                (let [num-tweets (+ (count tweets) (or num-tweets 0))
-                      total-chars (reduce +
-                                          (or total-chars 0)
-                                          (map (comp count :text) tweets))
-                      mentions-by-team (metric/timed :mentions-by-team (num-mentions-by-team tweets))]
-                  (bucket
-                   num-tweets
-                   total-chars
-                   mentions-by-team)))})))
 
-(defn- all-signals [buckets-by-time]
-  (let [bucket-sz-ms 5000
-        window-sz-ms 100000
-        ;; We intentionally drop the most recent bucket, as its value
-        ;; will likely change next on the next update
-        window-range (fn [buckets]
-                       (let [latest-t (apply max (keys buckets))]
-                         (range (- latest-t window-sz-ms) latest-t bucket-sz-ms)))
-        trim-to-window (fn [buckets]
-                         (metric/timed :trim-to-window
-                                       (into {}
-                                             (for [t (metric/timed :window-range (window-range buckets))]
-                                               [t (get buckets t (empty-bucket))]))))]
-    {:read (fn [team]
-             (sort-by :t
-                      (for [[t bucket] buckets-by-time]
-                        (DataPoint. t ((:magnitude bucket) team)))))
-     :update (fn [tweets]
-               (let [tweets-by-time (group-by :t
-                                              (->> tweets
-                                                   (remove tweet/is-retweet?)
-                                                   (discretize bucket-sz-ms)))]
-                 (all-signals
-                  
-                  (trim-to-window
-                   (reduce (fn [buckets [t tweetz]]
-                             (if-let [bucket (get buckets t)]
-                               (assoc buckets t (metric/timed :update-bucket
-                                                              ((:update bucket) tweetz)))
-                               (assoc buckets t (metric/timed :create-buckets (create-bucket tweetz)))))
-                           buckets-by-time
-                           tweets-by-time)))))}))
+(defn- bucket-times-in-window
+  [signals]
+  (def the-signals signals)
+  (->> (keys signals)
+       (apply max)
+       (iterate #(- % bucket-sz-ms))
+       (take (inc window-sz)))) ;; intentionally take an extra data point
+
+(defn trim-signals [signals]
+  (if signals
+    (select-keys signals (bucket-times-in-window signals))))
+
+(defn trim-signals2 [signals] ;; TODO: Delete, this is broken
+  (if signals
+    (let [t (bucket-times-in-window signals)
+          flatline (for [t t] (DataPoint. t 0.0))]
+      (select-keys (merge flatline signals) t))))
+
+(declare num-mentions-by-team)
+
+(defn- update-bucket [{:keys [num-tweets total-chars mentions-by-team] :as bucket} tweets]
+  (-> bucket
+      (update-in [:num-tweets] #(+ (count tweets) (or % 0)))
+      (update-in [:total-chars] #(reduce +
+                                         (or % 0)
+                                         (map (comp count :text) tweets)))
+      (update-in [:mentions-by-team] #(merge-with + (num-mentions-by-team tweets) %))))
+
+(deftest test-update-signals
+  (testing "We update existing buckets with new tweets"
+    (is (= {:num-tweets 6
+            :total-chars (+ 437 (count "yay the eagles scored"))
+            :mentions-by-team {:PHI 5
+                               :DAL 11}}
+           (get (update-signals sample-signals [{:t 4000
+                                                 :text "yay the eagles scored"}])
+                5000))))
+  (testing "We populate new buckets on new tweets"
+    (let [tweets [{:t 1000 :text "touchdown eagles"}
+                  {:t 2000 :text "yay cowboys"}
+                  {:t 6000 :text "cowboys woohoo"}]]
+      (is (= {5000 {:num-tweets 2
+                    :total-chars (+ (count "touchdown eagles")
+                                    (count "yay cowboys"))
+                    :mentions-by-team {:DAL 1 :PHI 1}}
+              10000 {:num-tweets 1
+                     :total-chars (count "cowboys woohoo")
+                     :mentions-by-team {:DAL 1 :PHI 0}}}
+             (create-signals tweets))))))
+
+(def sample-bucket-2
+  {:num-tweets 7
+   :total-chars 531
+   :mentions-by-team {:PHI 2
+                      :DAL 6}})
+
+(def sample-signals
+  {5000 sample-bucket-1
+   10000 sample-bucket-2})
+
+(deftest test-read-signals
+  (let [incomplete-bucket {:num-tweets 1
+                           :total-chars 10
+                           :mentions-by-team {:DAL 1 :PHI 0}}
+        signals (assoc sample-signals 15000 incomplete-bucket)]
+    (testing "We can read the signal value for a team"
+      (is (= [(DataPoint. 5000 (/ 4 (/ 437 5)))
+              (DataPoint. 10000 (/ 2 (/ 531 7)))]
+             (read-signal signals :PHI))))))
