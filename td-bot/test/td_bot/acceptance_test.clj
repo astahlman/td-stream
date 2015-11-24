@@ -41,7 +41,7 @@
 
 (defn test-clock-with-start [start]
   "Return a clock that increments one-second on every tick with the given start time"
-  (TestClock. start 2000))
+  (TestClock. start 5000))
 
 ;; starts at beginning of DAL-PHI game
 (def test-clock

@@ -61,7 +61,7 @@
 (defn- to-data-points [signals team]
   (butlast
    (for [[t {:keys [num-tweets total-chars mentions-by-team]}] (into (sorted-map) signals)]
-     (DataPoint. t (/ (get mentions-by-team team) (/ total-chars num-tweets))))))
+     (DataPoint. t (/ (get mentions-by-team team 0) (/ total-chars num-tweets))))))
 
 (defn read-signal [signals team]
   (-> signals

@@ -4,6 +4,7 @@
    [td-bot.signal :as signal]
    [td-bot.tweet :as tweet]
    [td-bot.identification :as identify]
+   [td-bot.fixture :as fixture]
    [td-bot.metrics :as metric]
    [clojure.tools.logging :as log]))
 
@@ -61,8 +62,10 @@
                                  (seq (clojure.set/difference
                                        (into #{} new-detection-log)
                                        (into #{} detection-log))))
+               active-fixtures (metric/timed :fixtures
+                                             (doall (fixture/active-fixtures-at (now clock))))
                detection-log (metric/timed :detection
-                                           (td-detector signals detection-log))
+                                           (td-detector signals detection-log active-fixtures))
                new-tds (map #(assoc % :identified-at (now clock))
                             (extract-new-tds detection-log))]
            (doall (map td-hook new-tds))
