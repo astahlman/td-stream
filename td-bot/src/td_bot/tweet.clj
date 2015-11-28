@@ -38,6 +38,14 @@
      (clojure.string/join "\n" (map tweet->json content))
      :append true)))
 
+(defn file->tweets
+  "Load all the tweets from a file (for debugging)"
+  [file]
+  (let [lines (-> file
+                  (slurp)
+                  (clojure.string/split #"\n"))]
+    (map td-bot.tweet/json->tweet lines)))
+
 (defn file-stream [file]
   "Return a function of one-argument (now) which consumes and returns
    all the tweets up until time 'now'. File stream is closed once EOF

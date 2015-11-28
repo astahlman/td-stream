@@ -128,7 +128,7 @@
 (defn- num-mentions-by-team [tweets]
   (let [tweet-text (map :text tweets)]
     (into {}
-          (for [{:keys [simple-name abbrev]} (filter #(contains? #{"DAL" "PHI"} (:abbrev %)) teams)]
+          (for [{:keys [simple-name abbrev]} teams]
             [(keyword abbrev)
              (metric/timed :fill-team-partition
                            (count 

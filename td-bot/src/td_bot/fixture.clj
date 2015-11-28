@@ -2,7 +2,8 @@
   (:require [clojure.data.csv :as csv]
             [clojure.java.io :as io]
             [clj-time.format :as fmt]
-            [td-bot.metrics :as metric]))
+            [td-bot.metrics :as metric]
+            [clojure.test :refer :all]))
 
 (def ^:const headers ["week" "home" "away" "start-time"])
 (def files-by-year {2015 "data/fixtures/nfl-schedule-2015.tsv"
@@ -10,7 +11,10 @@
 
 (defn- iso-str->epoch-ms [s]
   (.getMillis
-   (fmt/parse (fmt/formatters :date-time-no-ms) s)))
+   (try
+     (fmt/parse (fmt/formatters :date-time-no-ms) s)
+     (catch NullPointerException e
+         (println (str "Null pointer: " s))))))
 
 (defn- parse-row [row]
   (-> (zipmap (map keyword headers) row)
@@ -25,7 +29,6 @@
      (csv/read-csv in-file :separator \tab))))
 
 (defn- load-fixtures-from-file [file]
-  (println (str "Loading fixtures from disk: " file))
   (map parse-row (rest ;; skip headers
                   (read-fixtures-tsv file)))) 
 
@@ -50,3 +53,7 @@
   ([t fixtures]
    (let [in-progress? (fn [fixture] (game-in-progress? (:start-time fixture) t))]
      (filter in-progress? fixtures))))
+
+(deftest test-active-fixtures
+  (testing "We call a game in progress if it started less than 4.5 hours ago"
+    (is (= 1 (count (active-fixtures-at 1420322307784))))))

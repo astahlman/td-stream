@@ -53,6 +53,8 @@
      (loop [detection-log nil
             signals nil
             clock clock]
+       (when (= 1 (rand-int 100))
+         (println (now clock)))
        (if-let [new-tweets (and continue?
                                 (metric/timed :read-tweets
                                               (read-stream (now clock))))]
