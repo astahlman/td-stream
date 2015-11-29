@@ -111,12 +111,7 @@
     (log/log "tweetsLogger" :info nil (str (into [] tweets)))))
 
 (defn create-stream
-  ([] (create-stream ["touchdown"
-                      "TD"
-                      "field goal"
-                      "FG"
-                      "interception"
-                      "INT"]))
+  ([] (create-stream ["touchdown"]))
   ([keywords]
    (let [stream (create-tweet-client keywords)
          closed (atom false)

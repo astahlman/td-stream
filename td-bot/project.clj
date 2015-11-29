@@ -14,6 +14,7 @@
                                                                                          org.slf4j/log4j-over-slf4j
                                                                                          org.slf4j/jul-to-slf4j]]
                  [clj-time "0.11.0"]
+                 [amazonica "0.3.39"]
                  [utilize "0.2.3" :exclusions [org.clojure/clojure]]
                  ;; metrics
                  [metrics-clojure "2.5.1"]

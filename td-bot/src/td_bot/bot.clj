@@ -6,7 +6,8 @@
    [td-bot.identification :as identify]
    [td-bot.fixture :as fixture]
    [td-bot.metrics :as metric]
-   [clojure.tools.logging :as log]))
+   [clojure.tools.logging :as log]
+   [td-bot.notify :as notify]))
 
 (declare simple-alert)
 
@@ -28,7 +29,7 @@
   "Returns a new instance of the application."
   (metric/reset-metrics!)
   (hash-map
-   :td-hook simple-alert
+   :td-hook (fn [td] (doall (map #(% td) [simple-alert notify/sns-td-hook])))
    :clock (SystemClock.)
    :tweet-stream (tweet/create-stream)
    :td-detector detect/detect-tds))
@@ -53,8 +54,6 @@
      (loop [detection-log nil
             signals nil
             clock clock]
-       (when (= 1 (rand-int 100))
-         (println (now clock)))
        (if-let [new-tweets (and continue?
                                 (metric/timed :read-tweets
                                               (read-stream (now clock))))]
