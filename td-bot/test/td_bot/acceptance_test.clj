@@ -233,7 +233,7 @@
   "Run the bot against our entire test-set"
   (let [games (partition-by :file ground-truth)
         bots (map (fn [game]
-                    (let [file (:file (first game))
+                    (let [file (str "data/raw/" (:file (first game)))
                           start-time (find-start-time file)]
                       (assoc (test-bot file)
                              :clock (test-clock-with-start start-time)))) games)
