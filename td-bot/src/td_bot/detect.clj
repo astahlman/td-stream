@@ -68,7 +68,7 @@
 (with-test
   (defn the-only
     [xs]
-    (let [s (into #{} xs)]
+    (let [s (set xs)]
       (if (= 1 (count s))
         (first s))))
   (is (= :a (the-only [:a :a :a :a])))

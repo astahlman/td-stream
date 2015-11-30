@@ -32,7 +32,7 @@
                                       (discretize bucket-sz-ms)))]
     (def the-tweets tweets)
     (reduce (fn [buckets [t tweetz]]
-              (assoc buckets t (update-bucket (get buckets t) tweetz)))
+              (update-in buckets [t] update-bucket tweetz))
             signals
             tweets-by-time)))
 
@@ -55,7 +55,7 @@
                           (iterate #(- % 5000))
                           (take window-sz)
                           (into #{}))
-          missing-points (clojure.set/difference all-points (into #{} (map :t points)))]
+          missing-points (clojure.set/difference all-points (set (map :t points)))]
       (sort-by :t (concat (for [t missing-points] (DataPoint. t 0.0)) points)))))
 
 (defn- to-data-points [signals team]

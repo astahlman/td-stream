@@ -13,7 +13,7 @@
   (defn std-dev [xs]
     (let [n (count xs)
           m (mean xs)
-          dev (map #(-> (- % m) (Math/pow 2)) xs)]
+          dev (map #(Math/pow (- % m) 2) xs)]
       (Math/sqrt (mean dev))))
   (is (= 2.0 (std-dev [2 4 4 4 5 5 7 9])))
   (is (= 3.0 (std-dev [3 5 5 8 9 12]))))

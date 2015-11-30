@@ -108,7 +108,7 @@
 
 (defn log-tweets [tweets]
   (when (seq tweets)
-    (log/log "tweetsLogger" :info nil (str (into [] tweets)))))
+    (log/log "tweetsLogger" :info nil (str (vec tweets)))))
 
 (defn create-stream
   ([] (create-stream ["touchdown"]))

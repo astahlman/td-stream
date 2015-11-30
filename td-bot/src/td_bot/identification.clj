@@ -63,16 +63,16 @@
                        "demarco- murray,"
                        "demarco:     ([murray})_"]))))
     (testing "We don't remove our stop words until after partitioning into bigrams"
-      (is (not (= [{:count 1
-                    :bigram ["demarco" "murray"]}]
-                  (bigrams ["demarco touchdown murray"])))))))
+      (is (not=
+           [{:count 1, :bigram ["demarco" "murray"]}]
+           (bigrams ["demarco touchdown murray"]))))))
 
 (defn identify-scorer
   ([tweets]
    (identify-scorer latest-rosters tweets))
   ([rosters tweets]
    (let [raw-pairs (metric/timed :bigrams (map :bigram (bigrams tweets)))
-         player-names (metric/timed :player-names (into #{} (map :player rosters)))
+         player-names (metric/timed :player-names (set (map :player rosters)))
          best-match (some (fn [[w1 w2]]
                             (let [name (apply str w1 " " w2)]
                               (player-names name)))

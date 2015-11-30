@@ -61,8 +61,8 @@
                                      (signal/update-signals signals new-tweets))
                extract-new-tds (fn [new-detection-log]
                                  (seq (clojure.set/difference
-                                       (into #{} new-detection-log)
-                                       (into #{} detection-log))))
+                                       (set new-detection-log)
+                                       (set detection-log))))
                active-fixtures (metric/timed :fixtures
                                              (doall (fixture/active-fixtures-at (now clock))))
                detection-log (metric/timed :detection
