@@ -17,7 +17,7 @@
 
 (deftype SystemClock []
   Clock
-  (tick [this])
+  (tick [this] this)
   (now [this] (System/currentTimeMillis)))
 
 (deftype TestClock [t increment]
