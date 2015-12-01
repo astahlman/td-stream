@@ -65,14 +65,18 @@
 
 (declare false-neg-and-true-pos)
 
+(defn- map-vals [m f]
+  (into {} (for [[k v] m] [k (f v)])))
+
 (defn label-detections [det tds]
   (let [r (false-neg-and-true-pos det tds)
         tp (into #{} (map :identified-at (:true-pos r)))
-        fp (filter (fn [d] (not (contains? tp (:identified-at d)))) det)]
-    (utilize.map/map-vals
-     (conj r {:false-pos (map #(clojure.set/rename-keys %
-                                                        {:team :identified-team
-                                                         :player :identified-player}) fp)})
+        fp (filter #(not (contains? tp (:identified-at %))) det)
+        fp (map #(clojure.set/rename-keys %
+                                           {:team :identified-team
+                                            :player :identified-player}) fp)]
+    (map-vals
+     (assoc r :false-pos fp)
      #(seq (sort-by :t %)))))
 
 (defn false-neg-and-true-pos [det tds]

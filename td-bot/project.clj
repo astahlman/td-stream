@@ -5,7 +5,7 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.7.0"]
                  [org.clojure/data.json "0.2.6"]
-                 [incanter "1.9.0"]
+                 [incanter "1.9.0"] ;; TODO: Make this a dev dependency
                  [clj-tokenizer "0.1.0"]
                  [org.clojure/data.csv "0.1.3"]
                  [twitter-streaming-client/twitter-streaming-client "0.3.2" :exclusions [ch.qos.logback/logback-classic
@@ -15,7 +15,6 @@
                                                                                          org.slf4j/jul-to-slf4j]]
                  [clj-time "0.11.0"]
                  [amazonica "0.3.39"]
-                 [utilize "0.2.3" :exclusions [org.clojure/clojure]]
                  ;; metrics
                  [metrics-clojure "2.5.1"]
                  ;; Logging dependencies

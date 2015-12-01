@@ -34,6 +34,7 @@
                                (map (comp #(vals (select-keys % [:start-t :val])) #(update-in % [:val] double))
                                     (:buckets signal)))))
 
+;; TODO: Why is this in two places?
 (defn raw-tweet-log->json-file [path]
   "Convert the raw-tweets.log produced by the server to the record per line 
    JSON expected by our file-based tweet stream"
@@ -43,7 +44,7 @@
         tweet->json (fn [tweet] (->
                                 tweet
                                 (clojure.set/rename-keys {:t :timestamp_ms})
-                                (utilize.map/update :timestamp_ms str)
+                                (update-in [:timestamp_ms] str)
                                 (json/write-str)))
         content (reduce #(concat %1 (line->tweets %2)) [] lines)]
     (spit

@@ -3,8 +3,7 @@
             [clojure.data.json :as json]
             [twitter-streaming-client.core :as client]
             [twitter.oauth :as oauth]
-            [clojure.tools.logging :as log]
-            [utilize.map]))
+            [clojure.tools.logging :as log]))
 
 (defn is-retweet? [tweet]
   (.startsWith (clojure.string/lower-case tweet) "rt"))
@@ -17,7 +16,7 @@
    raw-json
    (json/read-str :key-fn keyword)
    (clojure.set/rename-keys {:timestamp_ms :t})
-   (utilize.map/update :t read-string)))
+   (update-in [:t] read-string)))
 
 (defn ls [dir-name]
   (map #(.getPath %)
@@ -30,7 +29,7 @@
         tweet->json (fn [tweet] (->
                                 tweet
                                 (clojure.set/rename-keys {:t :timestamp_ms})
-                                (utilize.map/update :timestamp_ms str)
+                                (update-in [:timestamp_ms] str)
                                 (json/write-str)))
         content (reduce #(concat %1 (line->tweets %2)) [] lines)]
     (spit
@@ -104,7 +103,7 @@
   (-> t
       (select-keys [:timestamp_ms :text])
       (clojure.set/rename-keys {:timestamp_ms :t})
-      (utilize.map/update :t read-string)))
+      (update-in [:t] read-string)))
 
 (defn log-tweets [tweets]
   (when (seq tweets)
