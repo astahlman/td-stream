@@ -1,11 +1,11 @@
 (ns td-bot.detection
-  (:require [clojure.test :refer [with-test is]]
-            [td-bot.metrics :as metric]
+  (:require [clojure.test :refer [is with-test]]
             [clojure.tools.logging :as log]
-            [td-bot.stats :refer :all])
-  (:use [td-bot.tweet :only [is-retweet? file-stream]]
-        [incanter.charts :only [line-chart]]
-        [incanter.core :only [save]]))
+            [incanter.charts :refer [line-chart]]
+            [td-bot
+             [metrics :as metric]
+             [stats :refer :all]
+             [tweet :refer [is-retweet?]]]))
 
 (def ^:private sig-interval 5000)
 (def ^:private min-buckets 20)

@@ -1,11 +1,11 @@
 (ns td-bot.acceptance-test
-  (:use [td-bot.test-data :only [dal-phi-touchdowns ground-truth]]
-        [td-bot.tweet :only [file-stream]]
-        [td-bot.utils :only [find-start-time]])
-  (:require [td-bot.bot :as bot]
-            [td-bot.identification :as id]
-            [clojure.test :refer :all])
-  (:import [td_bot.bot TestClock]))
+  (:require [clojure.test :refer :all]
+            [td-bot
+             [bot :as bot]
+             [test-data :refer [ground-truth]]
+             [tweet :refer [file-stream]]
+             [utils :refer [find-start-time]]])
+  (:import td_bot.bot.TestClock))
 
 (with-test
   (defn precision [{:keys [true-pos false-pos]}]

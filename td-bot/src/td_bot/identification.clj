@@ -1,11 +1,11 @@
 (ns td-bot.identification
-  (:use [td-bot.tweet :only [is-retweet?]])
-  (:require [clojure.data.json :as json]
-            [clj-tokenizer.core :as tokenize]
+  (:require [clj-tokenizer.core :as tokenize]
             [clojure.data.csv :as csv]
             [clojure.java.io :as io]
             [clojure.test :refer :all]
-            [td-bot.metrics :as metric]))
+            [td-bot
+             [metrics :as metric]
+             [tweet :refer [is-retweet?]]]))
 
 (defn- read-csv [file]
   (with-open [in-file (io/reader file)]
