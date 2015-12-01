@@ -50,11 +50,15 @@
 (def ^:private dal-phi-file "data/raw/tweets.2014-12-15.01.json")
 (def ^:private car-ari-file "data/raw/tweets.2015-01-03.21.json")
 
+(defn- simple-alert [{:keys [team happened-at]}]
+  (println (str "TOUCHDOWN!!! By the " team " @ " happened-at ". Hooray!")))
+
 (defn test-bot
   ([] (test-bot dal-phi-file))
   ([file]
    (conj (bot/system) {:clock test-clock
                        :tweet-stream (file-stream file)
+                       :td-hook simple-alert
                        ;:scorer-ider (partial id/identify-scorer
                        ;id/roster-snapshot)
                        })))
@@ -218,7 +222,7 @@
                    :clock (test-clock-with-start start-time))]
     (run-test true-tds bot)))
 
-(deftest cowboys-eagles-game
+(deftest ^:integration cowboys-eagles-game
   (testing "Our touchdown scores 'pretty well' on our test data set from
             the Cowboys vs. Eagles game"
     (let [results (run-game dal-phi-file)]

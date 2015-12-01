@@ -27,6 +27,10 @@
                                                     com.sun.jmx/jmxri]]]
 
   :java-agents [[com.newrelic.agent.java/newrelic-agent "3.20.0"]]
+  :test-selectors {:default (complement :integration)
+                   :integration :integration
+                   :all (constantly true)}
+  :profiles {:dev {:jvm-opts ["-Dlog4j.configuration=log4j-dev.properties"]}}
   :bootclasspath true
   :main td-bot.core)
 
