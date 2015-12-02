@@ -1,10 +1,10 @@
 (ns td-bot.acceptance-test
   (:require [clojure.test :refer :all]
+            [clojure.java.io :as io]
             [td-bot
              [bot :as bot]
              [test-data :refer [ground-truth]]
-             [tweet :refer [file-stream]]
-             [utils :refer [find-start-time]]])
+             [tweet :refer [file-stream json->tweet]]])
   (:import td_bot.bot.TestClock))
 
 (with-test
@@ -62,6 +62,13 @@
                        ;:scorer-ider (partial id/identify-scorer
                        ;id/roster-snapshot)
                        })))
+
+(defn find-start-time [file]
+  "Return the timestamp of the first tweet in the file"
+  (let [rdr (io/reader file)
+        line (try (.readLine rdr) (catch Exception e) (finally (.close rdr)))
+        tweet (json->tweet line)]
+    (:t tweet)))
 
 (declare false-neg-and-true-pos)
 
