@@ -25,8 +25,9 @@
   (tick [this] (TestClock. (+ t increment) increment))
   (now [this] t))
 
-(defn system []
+(defn system
   "Returns a new instance of the application."
+  []
   (metric/reset-metrics!)
   (hash-map
    :td-hook (fn [td] (doall (map #(% td) [simple-alert notify/sns-td-hook])))
@@ -42,7 +43,7 @@
 (defn capture-detections [state]
   (swap! captured-detections conj state))
 
-(defn main-loop 
+(defn main-loop
   "Do this constantly until continue? returns false or we run out of tweets"
   ([]
    (main-loop (constantly true)))
@@ -69,7 +70,7 @@
                                            (td-detector signals detection-log active-fixtures))
                new-tds (map #(assoc % :identified-at (now clock))
                             (extract-new-tds detection-log))]
-           (doall (map td-hook new-tds))
+           (dorun (map td-hook new-tds))
            (when (seq new-tds)
              (capture-detections {:now (now clock)
                                   :new-tds new-tds

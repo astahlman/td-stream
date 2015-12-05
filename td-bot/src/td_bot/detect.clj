@@ -13,7 +13,6 @@
 (defn- thresh
   ([xs] (thresh xs 6 0.05))
   ([xs multiplier min-val]
-   (def xs-capture xs)
    (let [m (stats/median xs)
          abs-dev-from-median (map #(Math/abs ^Double (- % m)) (map float xs))]
      (max min-val
@@ -62,8 +61,8 @@
   (defn split-window [sig]
     (let [[new-window old-window] (map reverse (split-at new-window-sz (reverse sig)))]
       [(take old-window-sz old-window) new-window]))
-  (is (= [(range 1 35) [35 36]])
-      (split-window (range 1 37))))
+  (is (= [(range 1 35) [35 36]]
+         (split-window (range 1 37)))))
 
 (with-test
   (defn the-only
@@ -81,8 +80,6 @@
   "Takes two team-signals and returns a touchdown or nil,
    where a touchdown has keys [:happened-at :team]"
   [home away]
-  (def the-home home)
-  (def the-away away)
   (if (and (>= (count (:signal home)) (+ old-window-sz new-window-sz))
            (>= (count (:signal away)) (+ old-window-sz new-window-sz)))
     (let [home-sig (:signal home)
@@ -92,20 +89,18 @@
       (if-let [noisy-team (the-only (noisier
                                      (map :magnitude home-new-window)
                                      (map :magnitude away-new-window)))]
-        (do (def the-away-old-window away-old-window)
-            (def the-away-new-window away-new-window)
-            (cond
-              (and (= :home noisy-team)
-                   (every? #(>= % (thresh (map :magnitude home-old-window)))
-                           (map :magnitude home-new-window)))
-              {:team (:team home)
-               :happened-at (:t (first home-new-window))}
-              
-              (and (= :away noisy-team)
-                   (every? #(>= % (thresh (map :magnitude away-old-window)))
-                           (map :magnitude away-new-window)))
-              {:team (:team away)
-               :happened-at (:t (first away-new-window))}))))))
+        (cond
+          (and (= :home noisy-team)
+               (every? #(>= % (thresh (map :magnitude home-old-window)))
+                       (map :magnitude home-new-window)))
+          {:team (:team home)
+           :happened-at (:t (first home-new-window))}
+          
+          (and (= :away noisy-team)
+               (every? #(>= % (thresh (map :magnitude away-old-window)))
+                       (map :magnitude away-new-window)))
+          {:team (:team away)
+           :happened-at (:t (first away-new-window))})))))
 
 (declare big-spike-at flatline overlay)
 

@@ -45,10 +45,11 @@
                   (clojure.string/split #"\n"))]
     (map td-bot.tweet/json->tweet lines)))
 
-(defn file-stream [file]
+(defn file-stream
   "Return a function of one-argument (now) which consumes and returns
    all the tweets up until time 'now'. File stream is closed once EOF
    is reached and nil is returned."
+  [file]
   (let [rdr (io/reader file)
         closed (atom false)
         buff (atom [])
@@ -88,15 +89,17 @@
      user-access-token
      user-access-token-secret)))
 
-(defn create-tweet-client [keywords]
+(defn create-tweet-client
   "Return a twitter client tracking the given keywords"
+  [keywords]
   (client/create-twitter-stream
    twitter.api.streaming/statuses-filter
    :oauth-creds (create-creds)
    :params {:track (clojure.string/join "," keywords)}))
 
-(defn schedule-repeat [callback ms]
+(defn schedule-repeat
   "Schedule callback to run every ms milliseconds"
+  [callback ms]
   (future (while true (do (Thread/sleep ms) (callback)))))
 
 (defn- format-tweet [t]

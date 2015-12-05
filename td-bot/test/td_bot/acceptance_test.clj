@@ -21,17 +21,19 @@
     (/ true-pos (+ true-pos false-neg)))
   (is (= 2/5 (recall {:true-pos 2 :false-neg 3}))))
 
-(with-test (defn f1-score [results]
-             "Results should have the following keys
+(with-test
+  (defn f1-score
+    "Results should have the following keys
    1. :true-pos
    2. :false-pos
    3. :false-neg"
-             (let [p (precision results)
-                   r (recall results)]
-               (cond
-                 (Double/isNaN p) 0
-                 (zero? (+ p r)) 0
-                 :else (* 2 (/ (* p r) (+ p r))))))
+    [results]
+    (let [p (precision results)
+          r (recall results)]
+      (cond
+        (Double/isNaN p) 0
+        (zero? (+ p r)) 0
+        :else (* 2 (/ (* p r) (+ p r))))))
   (is (= 1 (f1-score {:true-pos 1 :false-pos 0 :false-neg 0})))
   (is (= 0.6 (double (f1-score {:true-pos 3 :false-pos 3 :false-neg 1}))))
   (testing "If precision and recall are 0, f-1 is 0"
@@ -39,8 +41,9 @@
   (testing "If precision is undefined, f-1 is 0"
     (is (zero? (f1-score {:true-pos 0 :false-pos 0 :false-neg 10})))))
 
-(defn test-clock-with-start [start]
+(defn test-clock-with-start
   "Return a clock that increments one-second on every tick with the given start time"
+  [start]
   (TestClock. start 5000))
 
 ;; starts at beginning of DAL-PHI game
@@ -63,8 +66,9 @@
                        ;id/roster-snapshot)
                        })))
 
-(defn find-start-time [file]
+(defn find-start-time
   "Return the timestamp of the first tweet in the file"
+  [file]
   (let [rdr (io/reader file)
         line (try (.readLine rdr) (catch Exception e) (finally (.close rdr)))
         tweet (json->tweet line)]
@@ -77,7 +81,7 @@
 
 (defn label-detections [det tds]
   (let [r (false-neg-and-true-pos det tds)
-        tp (into #{} (map :identified-at (:true-pos r)))
+        tp (set (map :identified-at (:true-pos r)))
         fp (filter #(not (contains? tp (:identified-at %))) det)
         fp (map #(clojure.set/rename-keys %
                                            {:team :identified-team
@@ -91,9 +95,11 @@
             (let [diff (- (:identified-at d) (:t td))]
                  (and (pos? diff) (<= diff 30000))))
           (merge-det-and-td [d td]
-            (-> td
-                (merge (clojure.set/rename-keys d {:team :identified-team
-                                                   :player :identified-player}))))]
+            (merge
+             td
+             (clojure.set/rename-keys
+              d
+              {:team :identified-team, :player :identified-player})))]
     (reduce (fn [r td]
               (if-let [m (first (filter #(match % td) det))]
                 (update-in r [:true-pos] conj (merge-det-and-td m td))
@@ -147,8 +153,9 @@
               :false-neg nil}
              (label-detections detected truth))))))
 
-(defn score-output [out]
+(defn score-output
   "Assigns an F-1 score to labelled detections"
+  [out]
   (let [counts (reduce (fn [m [k v]]
                          (assoc m k (count v)))
                        {} out)]
@@ -168,8 +175,9 @@
                                           {:t 2}]
                               :false-pos [{:t 1}]})))))
 
-(defn- score-player-id [labelled-results]
+(defn- score-player-id
   "Return the ratio of correct identifications for player and team"
+  [labelled-results]
   (let [tp (:true-pos labelled-results)]
     (if (zero? (count tp))
       0
@@ -201,13 +209,12 @@
              (score-player-id labelled-results))))))
 
 (defn run-test
+  "Run bot and label results according to ground truth supplied in true-tds"
   ([true-tds]
    (run-test true-tds (test-bot)))
   ([true-tds bot]
-   "Run bot and label results according to ground truth supplied in true-tds"
    (let [detections (atom ())
-         save-detection (fn [td] (do
-                                  (swap! detections conj td)))
+         save-detection (fn [td] (swap! detections conj td))
          bot (update-in bot [:td-hook] (fn [old-hook]
                                         (fn [td]
                                           (do
@@ -224,8 +231,9 @@
               :f1-score (score-output results)
               :player-id-score (score-player-id results))))))
 
-(defn run-game [file]
+(defn run-game
   "Instantiate and run a bot against the game capture in a specific file"
+  [file]
   (let [truth (filter #(= file (str "data/raw/" (:file %))) ground-truth)
         true-tds (map #(select-keys % [:t :player :team]) truth)
         start-time (find-start-time file)
@@ -243,8 +251,9 @@
                        :team-score 1}
                       (:player-id-score results)))))))
 
-(defn run-entire-test-set []
+(defn run-entire-test-set
   "Run the bot against our entire test-set"
+  []
   (let [games (partition-by :file ground-truth)
         bots (map (fn [game]
                     (let [file (str "data/raw/" (:file (first game)))

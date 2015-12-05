@@ -30,22 +30,10 @@
                                       (remove is-rt?)
                                       (filter is-td?) ;; b/c of 2014 datasets
                                       (discretize bucket-sz-ms)))]
-    (def the-tweets tweets)
     (reduce (fn [buckets [t tweetz]]
               (update-in buckets [t] update-bucket tweetz))
             signals
             tweets-by-time)))
-
-(defn- fill-gaps [points]
-  (let [points-by-t (into {} (for [{:keys [t] :as point} points]
-                               [t point]))
-        [end-t start-t] [(apply max (keys points-by-t)) (apply min (keys points-by-t))]
-        window-range (range start-t end-t 5000)
-        flatline (into {} (for [t window-range] [t (DataPoint. t 0.0)]))]
-    (vals (merge flatline points-by-t))))
-
-(defn seq-range [xs]
-  [(apply min xs) (apply max xs)])
 
 (defn- fill-gaps [points]
   (if points
@@ -68,9 +56,10 @@
    (to-data-points team)
    (fill-gaps)))
 
-(defn plot-signal [data-points]
+(defn plot-signal
   "Plot the given data points. Save to disk like this:
    (save (plot-signal $tweets) $filename)"
+  [data-points]
   (let [[x y] ((juxt #(map :t %) #(map :magnitude %)) data-points)]
     (line-chart x y)))
 
@@ -169,7 +158,6 @@
 
 (defn- bucket-times-in-window
   [signals]
-  (def the-signals signals)
   (->> (keys signals)
        (apply max)
        (iterate #(- % bucket-sz-ms))
@@ -216,16 +204,6 @@
                      :total-chars (count "cowboys woohoo")
                      :mentions-by-team {:DAL 1 :PHI 0}}}
              (create-signals tweets))))))
-
-(def sample-bucket-2
-  {:num-tweets 7
-   :total-chars 531
-   :mentions-by-team {:PHI 2
-                      :DAL 6}})
-
-(def sample-signals
-  {5000 sample-bucket-1
-   10000 sample-bucket-2})
 
 (deftest test-read-signals
   (let [incomplete-bucket {:num-tweets 1

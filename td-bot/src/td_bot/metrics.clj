@@ -1,7 +1,7 @@
 (ns td-bot.metrics
   (:require [clojure.test :refer :all]
             [td-bot.stats :as stats]
-            [clojure.pprint :only [pprint]]
+            [clojure.pprint :refer [pprint]]
             [metrics.meters :as meters]
             [metrics.gauges :as gauges]
             [metrics.reporters.csv :as csv]))
