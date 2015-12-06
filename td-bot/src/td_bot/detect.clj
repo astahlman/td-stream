@@ -10,15 +10,14 @@
 (def ^:const new-window-sz 2) ;; 2 data points
 (def ^:const detection-freeze-ms 180000) ;; three minutes
 
-(defn- thresh
-  ([xs] (thresh xs 6 0.05))
-  ([xs multiplier min-val]
-   (let [m (stats/median xs)
-         abs-dev-from-median (map #(Math/abs ^Double (- % m)) (map float xs))]
-     (max min-val
-          (+ m (* multiplier (stats/median abs-dev-from-median)))))))
-
-(deftest test-threshold-calculation
+(with-test
+  (defn- thresh
+    ([xs] (thresh xs 6 0.05))
+    ([xs multiplier min-val]
+     (let [m (stats/median xs)
+           abs-dev-from-median (map #(Math/abs ^Double (- % m)) (map float xs))]
+       (max min-val
+            (+ m (* multiplier (stats/median abs-dev-from-median)))))))
   (testing "Our threshold for a series is the median plus the median absolute deviation times 6"
     (is (= 9.0 (thresh [1 2 3 4 5]))))
   (testing "The threshold can't be below some lower-bound (0.05 by default)"
@@ -105,48 +104,44 @@
 (declare big-spike-at flatline overlay)
 
 (deftest test-detection
-  (testing "We can detect really obvious touchdowns"
-    (is (= '({:happened-at 295000
-              :team :PIT})
-           (detect-in-fixture {:signal (big-spike-at 295000 (flatline 0 300000))
-                               :team :PIT}
-                              {:signal (flatline 0 300000)
-                               :team :CIN}
-                              nil))))
-  (testing "We don't detect touchdowns if the signals are flat"
-    (is (nil? (detect-in-fixture {:signal (flatline 0 300000)
-                                  :team :PIT}
-                                 {:signal (flatline 0 300000)
-                                  :team :CIN}
-                                 nil))))
-  (testing "We ignore huge spikes during the freeze period after a touchdown"
-    (let [detection-log [{:happened-at 250000
-                          :team :PIT}]]
-      (is (= detection-log
+  (letfn [(flatline
+              [start end]
+              (for [t (range start (inc end) 5000)]
+                (DataPoint. t 0)))
+          (overlay
+              [pts base]
+              (let [m (into (sorted-map) (for [{:keys [t] :as point} base] [t point]))]
+                (vals (reduce (fn [m pt]
+                                (assoc m (:t pt) pt))
+                              m
+                              pts))))
+          (big-spike-at
+              [t signal]
+              (let [t1 t
+                    t2 (+ 5000 t)]
+                (overlay [(DataPoint. t1 10) (DataPoint. t2 10)] signal)))]
+    (testing "We can detect really obvious touchdowns"
+      (is (= '({:happened-at 295000
+                :team :PIT})
              (detect-in-fixture {:signal (big-spike-at 295000 (flatline 0 300000))
                                  :team :PIT}
                                 {:signal (flatline 0 300000)
                                  :team :CIN}
-                                detection-log))))))
+                                nil))))
+    (testing "We don't detect touchdowns if the signals are flat"
+      (is (nil? (detect-in-fixture {:signal (flatline 0 300000)
+                                    :team :PIT}
+                                   {:signal (flatline 0 300000)
+                                    :team :CIN}
+                                   nil))))
+    (testing "We ignore huge spikes during the freeze period after a touchdown"
+      (let [detection-log [{:happened-at 250000
+                            :team :PIT}]]
+        (is (= detection-log
+               (detect-in-fixture {:signal (big-spike-at 295000 (flatline 0 300000))
+                                   :team :PIT}
+                                  {:signal (flatline 0 300000)
+                                   :team :CIN}
+                                  detection-log)))))))
 
-(defn flatline
-  "Flat zero from start to end, inclusive, by 5000"
-  [start end]
-  (for [t (range start (inc end) 5000)]
-    (DataPoint. t 0)))
 
-(defn overlay
-  "Overlay pts on top of base signal"
-  [pts base]
-  (let [m (into (sorted-map) (for [{:keys [t] :as point} base] [t point]))]
-    (vals (reduce (fn [m pt]
-                    (assoc m (:t pt) pt))
-                  m
-                  pts))))
-
-(defn big-spike-at
-  "Set the signal magnitude to 10 for two data points starting at t"
-  [t signal]
-  (let [t1 t
-        t2 (+ 5000 t)]
-    (overlay [(DataPoint. t1 10) (DataPoint. t2 10)] signal)))

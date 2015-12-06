@@ -5,7 +5,7 @@
              [bot :as bot]
              [test-data :refer [ground-truth]]
              [tweet :refer [file-stream json->tweet]]])
-  (:import td_bot.bot.TestClock))
+  (:import td_bot.bot.Clock))
 
 (with-test
   (defn precision [{:keys [true-pos false-pos]}]
@@ -40,6 +40,11 @@
     (is (zero? (f1-score {:true-pos 0 :false-pos 10 :false-neg 10}))))
   (testing "If precision is undefined, f-1 is 0"
     (is (zero? (f1-score {:true-pos 0 :false-pos 0 :false-neg 10})))))
+
+(deftype TestClock [t increment]
+  Clock
+  (tick [this] (TestClock. (+ t increment) increment))
+  (now [this] t))
 
 (defn test-clock-with-start
   "Return a clock that increments one-second on every tick with the given start time"

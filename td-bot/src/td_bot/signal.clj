@@ -99,15 +99,6 @@
    {:location "Tennessee" :full-name "Tennessee Titans" :simple-name "Titans" :abbrev "TEN"}
    {:location "Washington" :full-name "Washington Redskins" :simple-name "Redskins" :abbrev "WAS"}])
 
-(def sample-tweets [{:text "touchdown steelers" :t 1000}
-                    {:text "touchdown baby" :t 2000}
-                    {:text "seahawks touchdown yeah" :t 3000}
-                    {:text "that's a touchdown falcons" :t 4000}
-                    {:text "touchdown bears" :t 5000}
-                    {:text "a 49ers touchdown" :t 6000}
-                    {:text "RT: yay a touchdown for the patriots" :t 11000}
-                    {:text "falcons defense gave up a touchdown" :t 16000}])
-
 ;; These are expensive to create
 (def team-patterns
   (into {}
@@ -139,23 +130,6 @@
              [:t]
              round-up)) tweets))))
 
-(def sample-bucket-1
-  {:num-tweets 5
-   :total-chars 437
-   :mentions-by-team {:PHI 4
-                      :DAL 11}})
-
-(def sample-bucket-2
-  {:num-tweets 7
-   :total-chars 531
-   :mentions-by-team {:PHI 2
-                      :DAL 6}})
-
-(def sample-signals
-  {5000 sample-bucket-1
-   10000 sample-bucket-2})
-
-
 (defn- bucket-times-in-window
   [signals]
   (->> (keys signals)
@@ -167,12 +141,6 @@
   (if signals
     (select-keys signals (bucket-times-in-window signals))))
 
-(defn trim-signals2 [signals] ;; TODO: Delete, this is broken
-  (if signals
-    (let [t (bucket-times-in-window signals)
-          flatline (for [t t] (DataPoint. t 0.0))]
-      (select-keys (merge flatline signals) t))))
-
 (declare num-mentions-by-team)
 
 (defn- update-bucket [{:keys [num-tweets total-chars mentions-by-team] :as bucket} tweets]
@@ -183,34 +151,3 @@
                                          (map (comp count :text) tweets)))
       (update-in [:mentions-by-team] #(merge-with + (num-mentions-by-team tweets) %))))
 
-(deftest test-update-signals
-  (testing "We update existing buckets with new tweets"
-    (is (= {:num-tweets 6
-            :total-chars (+ 437 (count "yay the eagles scored"))
-            :mentions-by-team {:PHI 5
-                               :DAL 11}}
-           (get (update-signals sample-signals [{:t 4000
-                                                 :text "yay the eagles scored"}])
-                5000))))
-  (testing "We populate new buckets on new tweets"
-    (let [tweets [{:t 1000 :text "touchdown eagles"}
-                  {:t 2000 :text "yay cowboys"}
-                  {:t 6000 :text "cowboys woohoo"}]]
-      (is (= {5000 {:num-tweets 2
-                    :total-chars (+ (count "touchdown eagles")
-                                    (count "yay cowboys"))
-                    :mentions-by-team {:DAL 1 :PHI 1}}
-              10000 {:num-tweets 1
-                     :total-chars (count "cowboys woohoo")
-                     :mentions-by-team {:DAL 1 :PHI 0}}}
-             (create-signals tweets))))))
-
-(deftest test-read-signals
-  (let [incomplete-bucket {:num-tweets 1
-                           :total-chars 10
-                           :mentions-by-team {:DAL 1 :PHI 0}}
-        signals (assoc sample-signals 15000 incomplete-bucket)]
-    (testing "We can read the signal value for a team"
-      (is (= [(DataPoint. 5000 (/ 4 (/ 437 5)))
-              (DataPoint. 10000 (/ 2 (/ 531 7)))]
-             (read-signal signals :PHI))))))

@@ -63,11 +63,12 @@
      result#))
 
 (deftest timed-operations
-  (let [result1 (timed :test-op (do (Thread/sleep 100) (inc 42)))
-        result2 (timed :test-op (do (Thread/sleep 20) :foo))]
-    (testing "We evaluate the body of a timed operation and return the result"
-      (is (= '(43 :foo) (list result1 result2))))
-    (testing "And we also append timing information to the metrics, front-to-back"
-      (is (= 2 (count (:test-op (deref metrics)))))
-      (is (<= 100 (second (:test-op (deref metrics)))))
-      (is (<= 20 (first (:test-op (deref metrics))))))))
+  (with-redefs [should-instrument true]
+    (let [result1 (timed :test-op (do (Thread/sleep 100) (inc 42)))
+          result2 (timed :test-op (do (Thread/sleep 20) :foo))]
+      (testing "We evaluate the body of a timed operation and return the result"
+        (is (= '(43 :foo) (list result1 result2))))
+      (testing "And we also append timing information to the metrics, front-to-back"
+        (is (= 2 (count (:test-op (:timers (deref metrics))))))
+        (is (<= 100 (second (:test-op (:timers (deref metrics))))))
+        (is (<= 20 (first (:test-op (:timers (deref metrics))))))))))

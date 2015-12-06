@@ -20,11 +20,6 @@
   (tick [this] this)
   (now [this] (System/currentTimeMillis)))
 
-(deftype TestClock [t increment]
-  Clock
-  (tick [this] (TestClock. (+ t increment) increment))
-  (now [this] t))
-
 (defn system
   "Returns a new instance of the application."
   []

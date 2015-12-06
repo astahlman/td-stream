@@ -18,10 +18,6 @@
    (clojure.set/rename-keys {:timestamp_ms :t})
    (update-in [:t] read-string)))
 
-(defn ls [dir-name]
-  (map #(.getPath %)
-       (remove #(= % (clojure.java.io/file dir-name)) (file-seq (clojure.java.io/file dir-name)))))
-
 (defn raw-tweet-log->json-file [path]
   (let [lines (clojure.string/split (slurp path) #"\n")
         start-of-tweets-re #"\[\{.*"
