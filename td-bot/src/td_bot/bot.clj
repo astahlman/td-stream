@@ -3,22 +3,15 @@
    [td-bot.detect :as detect]
    [td-bot.signal :as signal]
    [td-bot.tweet :as tweet]
+   [td-bot.clock :refer [tick now]]
    [td-bot.identification :as identify]
    [td-bot.fixture :as fixture]
    [td-bot.metrics :as metric]
    [clojure.tools.logging :as log]
-   [td-bot.notify :as notify]))
+   [td-bot.notify :as notify])
+  (:import td_bot.clock.SystemClock))
 
 (declare simple-alert)
-
-(defprotocol Clock
-  (tick [this])
-  (now [this]))
-
-(deftype SystemClock []
-  Clock
-  (tick [this] this)
-  (now [this] (System/currentTimeMillis)))
 
 (defn system
   "Returns a new instance of the application."
