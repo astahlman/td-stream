@@ -36,7 +36,7 @@
   (if-let [file (get files-by-year year)]
     (load-fixtures-from-file file)))
 
-(defn game-in-progress? [kickoff now]
+(defn- game-in-progress? [kickoff now]
   (let [delta (- now kickoff)
         four-and-a-half-hours (* 1000 60 60 4.5)]
     (and (>= delta 0)
@@ -47,13 +47,16 @@
    (for [year [2014 2015]]
      (map #(assoc % :year year) (load-fixtures year)))))
 
-(defn active-fixtures-at
-  ([t]
-   (active-fixtures-at t all-fixtures))
-  ([t fixtures]
-   (let [in-progress? (fn [fixture] (game-in-progress? (:start-time fixture) t))]
-     (filter in-progress? fixtures))))
-
-(deftest test-active-fixtures
+(with-test
+  (defn active-fixtures-at
+    ([t]
+     (active-fixtures-at t all-fixtures))
+    ([t fixtures]
+     (let [in-progress? (fn [fixture] (game-in-progress? (:start-time fixture) t))]
+       (filter in-progress? fixtures))))
   (testing "We call a game in progress if it started less than 4.5 hours ago"
-    (is (= 1 (count (active-fixtures-at 1420322307784))))))
+    (let [bal-pit-start-time 1420334100000
+          before-end-of-game (+ bal-pit-start-time (* 1000 60 60 4.49))
+          after-end-of-game (+ bal-pit-start-time (* 1000 60 60 4.51))]
+      (is (= 1 (count (active-fixtures-at before-end-of-game))))
+      (is (zero? (count (active-fixtures-at after-end-of-game)))))))

@@ -50,7 +50,6 @@
         closed (atom false)
         buff (atom [])
         first-pending (first @buff)
-        continue? (fn [tweet-t t] (<= tweet-t t))
         close #(do
                  (println "Closing stream...")
                  (.close rdr)
@@ -68,7 +67,7 @@
                      (cond
                        @closed nil
                        (not tweet) (do (close) ret)
-                       (not (continue? (:t tweet) now))
+                       (not (<= (:t tweet) now))
                        (do
                          (reset! buff [tweet])
                          ret)

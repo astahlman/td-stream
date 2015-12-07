@@ -52,9 +52,9 @@
 (with-test
   (defn- noisier [home away]
     (map #(if (> %1 %2) :home :away) home away))
-  (is (= (noisier [10 20 3]
-                  [1 2 30])
-         [:home :home :away])))
+  (is (= [:home :home :away]
+         (noisier [10 20 3]
+                  [1 2 30]))))
 
 (with-test
   (defn split-window [sig]

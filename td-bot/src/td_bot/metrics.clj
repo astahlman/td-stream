@@ -6,6 +6,9 @@
             [metrics.gauges :as gauges]
             [metrics.reporters.csv :as csv]))
 
+;; We aren't being smart about how many data points to keep,
+;; so keeping this on in production would eventually exhaust the heap
+(def instrument? (atom false))
 (def metrics (atom {}))
 (def CR (csv/reporter "/var/log/td-bot" {}))
 
@@ -45,10 +48,6 @@
                               :max (apply max times)
                               :total (reduce + times)}]))))))
 
-;; We aren't being smart about how many data points to keep,
-;; so keeping this on in production would eventually exhaust the heap
-(def should-instrument true)
-
 ;; TODO: Use the Metrics library for this
 (defmacro timed
   "Execute body and conj the execution time to the metrics with the given label"
@@ -56,19 +55,8 @@
   `(let [start# (System/currentTimeMillis)
          result# ~@body
          t# (- (System/currentTimeMillis) start#)]
-     (when ~should-instrument
+     (when (deref instrument?)
        (do (swap! metrics (fn [m#]
                             (update-in m# [:timers ~label] #(conj % t#))))
            result#))
      result#))
-
-(deftest timed-operations
-  (with-redefs [should-instrument true]
-    (let [result1 (timed :test-op (do (Thread/sleep 100) (inc 42)))
-          result2 (timed :test-op (do (Thread/sleep 20) :foo))]
-      (testing "We evaluate the body of a timed operation and return the result"
-        (is (= '(43 :foo) (list result1 result2))))
-      (testing "And we also append timing information to the metrics, front-to-back"
-        (is (= 2 (count (:test-op (:timers (deref metrics))))))
-        (is (<= 100 (second (:test-op (:timers (deref metrics))))))
-        (is (<= 20 (first (:test-op (:timers (deref metrics))))))))))
