@@ -29,13 +29,16 @@
     (reset! (:backing-atom gauge) val)))
 
 
-(defn mark-meter! [title]
-  (let [met (or (get-in @metrics [:meters title])
-                (get-in (swap! metrics (fn [m]
-                                         (update-in m [:meters]
-                                                    #(assoc % title (meters/meter title)))))
-                        [:meters title]))]
-    (meters/mark! met)))
+(defn mark-meter!
+  ([title]
+   (mark-meter! title 1))
+  ([title n]
+   (let [met (or (get-in @metrics [:meters title])
+                 (get-in (swap! metrics (fn [m]
+                                          (update-in m [:meters]
+                                                     #(assoc % title (meters/meter title)))))
+                         [:meters title]))]
+     (meters/mark! met n))))
 
 (defn reset-metrics! []
   (reset! metrics {})

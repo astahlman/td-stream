@@ -8,7 +8,6 @@
    [td-bot.fixture :as fixture]
    [td-bot.metrics :as metric]
    [metrics.gauges :as gauges]
-   [metrics.histograms :as histograms]
    [clojure.tools.logging :as log]
    [td-bot.notify :as notify])
   (:import td_bot.clock.SystemClock))
@@ -42,8 +41,6 @@
        (gauges/gauge-fn (str "signal-" team)
                         #(read-team-signal (keyword team)))))))
 
-(histograms/defhistogram incoming-tweets)
-
 (defn main-loop
   "Do this constantly until continue? returns false or we run out of tweets"
   ([]
@@ -72,7 +69,7 @@
                new-tds (map #(assoc % :identified-at (now clock))
                             (extract-new-tds detection-log))]
            (reset! latest-signals signals)
-           (histograms/update! incoming-tweets (count new-tweets))
+           (metric/mark-meter! "incoming-tweets" (count new-tweets))
            (dorun (map td-hook new-tds))
            (recur detection-log
                   (signal/trim-signals signals)
