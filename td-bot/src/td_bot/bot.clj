@@ -7,6 +7,7 @@
    [td-bot.identification :as identify]
    [td-bot.fixture :as fixture]
    [td-bot.metrics :as metric]
+   [metrics.gauges :as gauges]
    [clojure.tools.logging :as log]
    [td-bot.notify :as notify])
   (:import td_bot.clock.SystemClock))
@@ -27,9 +28,18 @@
   (println (str "TOUCHDOWN!!! By the " team " @ " happened-at ". Hooray!"))
   (metric/mark-meter! "touchdowns"))
 
-(def captured-detections (atom []))
-(defn capture-detections [state]
-  (swap! captured-detections conj state))
+(def latest-signals (atom nil))
+(def signal-gauges
+  (letfn [(read-team-signal [team]
+            (if-let [signals @latest-signals]
+              (-> signals
+                  (signal/read-signal team)
+                  (last)
+                  (:magnitude))))]
+    (doall
+     (for [team (map :abbrev signal/teams)]
+       (gauges/gauge-fn (str "signal-" team)
+                        #(read-team-signal (keyword team)))))))
 
 (defn main-loop
   "Do this constantly until continue? returns false or we run out of tweets"
@@ -58,12 +68,8 @@
                                            (td-detector signals detection-log active-fixtures))
                new-tds (map #(assoc % :identified-at (now clock))
                             (extract-new-tds detection-log))]
+           (reset! latest-signals signals)
            (dorun (map td-hook new-tds))
-           (when (seq new-tds)
-             (capture-detections {:now (now clock)
-                                  :new-tds new-tds
-                                  :signals signals
-                                  :new-tweets new-tweets}))
            (recur detection-log
                   (signal/trim-signals signals)
                   (tick clock)))

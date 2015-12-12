@@ -15,7 +15,8 @@
                  [clj-time "0.11.0"]
                  [amazonica "0.3.39"]
                  ;; metrics
-                 [metrics-clojure "2.5.1" :exclusions [org.slf4j/slf4j-api]]
+                 [metrics-clojure "2.6.0" :exclusions [org.slf4j/slf4j-api]]
+                 [metrics-clojure-graphite "2.6.0" :exclusions [org.slf4j/slf4j-api]]
                  ;; Logging dependencies
                  [org.clojure/tools.logging "0.3.1"]
                  [org.slf4j/slf4j-log4j12 "1.7.1"]

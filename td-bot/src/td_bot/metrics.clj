@@ -4,13 +4,18 @@
             [clojure.pprint :refer [pprint]]
             [metrics.meters :as meters]
             [metrics.gauges :as gauges]
-            [metrics.reporters.csv :as csv]))
+            [metrics.reporters.graphite :as graphite]
+            [metrics.reporters.csv :as csv])
+  (:import [java.util.concurrent TimeUnit]))
 
 ;; We aren't being smart about how many data points to keep,
 ;; so keeping this on in production would eventually exhaust the heap
 (def instrument? (atom false))
 (def metrics (atom {}))
 (def CR (csv/reporter "/var/log/td-bot" {}))
+(def GR (graphite/reporter {:host "localhost"
+                            :rate-unit TimeUnit/SECONDS
+                            :duration-unit TimeUnit/MILLISECONDS}))
 
 (defn with-gauge [title val]
   (let [gauge (or (get-in @metrics [:gauges title])
@@ -34,7 +39,8 @@
 
 (defn reset-metrics! []
   (reset! metrics {})
-  (csv/start CR 1))
+  (csv/start CR 5) ;; every 5 seconds
+  (graphite/start GR 10)) ;; every 10 seconds
 
 (defn print-metrics []
   (clojure.pprint/pprint
