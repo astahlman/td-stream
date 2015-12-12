@@ -3,8 +3,9 @@
             [td-bot.tweet :as tweet]
             [td-bot.metrics :as metric]
             [clojure.test :refer :all]
-            [incanter.charts :refer [line-chart]]
-            [incanter.core :refer [save]]))
+            ;[incanter.charts :refer [line-chart]]
+            ;[incanter.core :refer [save]]
+            ))
 
 (def bucket-sz-ms 5000)
 ;; TODO: Stop hard-coding this in two different places
@@ -56,12 +57,12 @@
    (to-data-points team)
    (fill-gaps)))
 
-(defn plot-signal
-  "Plot the given data points. Save to disk like this:
+(comment (defn plot-signal
+           "Plot the given data points. Save to disk like this:
    (save (plot-signal $tweets) $filename)"
-  [data-points]
-  (let [[x y] ((juxt #(map :t %) #(map :magnitude %)) data-points)]
-    (line-chart x y)))
+           [data-points]
+           (let [[x y] ((juxt #(map :t %) #(map :magnitude %)) data-points)]
+             (line-chart x y))))
 
 (declare teams)
 
