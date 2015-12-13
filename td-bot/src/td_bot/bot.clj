@@ -35,7 +35,8 @@
               (-> signals
                   (signal/read-signal team)
                   (last)
-                  (:magnitude))))]
+                  (:magnitude)
+                  (float))))]
     (doall
      (for [team (map :abbrev signal/teams)]
        (gauges/gauge-fn (str "signal-" team)
