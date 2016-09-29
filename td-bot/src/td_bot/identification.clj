@@ -27,7 +27,7 @@
 (def latest-rosters
   (map #(hash-map :team (:team_name %)
                   :player (str (:first_name %) " " (:last_name %)))
-       (load-roster "./scripts/rosters.csv")))
+       (load-roster "./data/rosters/rosters-2016-09-28.csv")))
 
 (def ^:private stop-words #{"td" "touchdown" "rt" "baby" "a" "an" "the" "and" "yeah"})
 

@@ -14,6 +14,7 @@
                                                                                          org.slf4j/jul-to-slf4j]]
                  [clj-time "0.11.0"]
                  [amazonica "0.3.39"]
+                 [environ "1.1.0"]
                  ;; metrics
                  [metrics-clojure "2.6.0" :exclusions [org.slf4j/slf4j-api]]
                  [metrics-clojure-graphite "2.6.0" :exclusions [org.slf4j/slf4j-api]]
@@ -24,13 +25,14 @@
                                                     javax.jms/jms
                                                     com.sun.jmdk/jmxtools
                                                     com.sun.jmx/jmxri]]]
-
-  :java-agents [[com.newrelic.agent.java/newrelic-agent "3.20.0"]]
+  :plugins [[lein-environ "1.1.0"]]
+  ;:java-agents [[com.newrelic.agent.java/newrelic-agent "3.20.0"]]
   :test-selectors {:default (complement :integration)
                    :integration :integration
                    :all (constantly true)}
   :profiles {:dev {:jvm-opts ["-Dlog4j.configuration=log4j-dev.properties"]
-                   :dependencies [[incanter "1.9.0" :exclusions [commons-codec org.clojure/tools.macro]]]}}
+                   :dependencies [[incanter "1.9.0" :exclusions [commons-codec org.clojure/tools.macro]]]
+                   :env {:log-dir "var/log/td-bot"}}}
   :test-paths ["src" "test"]
   :pedantic? :warn
   :bootclasspath true

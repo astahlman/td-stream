@@ -5,14 +5,15 @@
             [metrics.meters :as meters]
             [metrics.gauges :as gauges]
             [metrics.reporters.graphite :as graphite]
-            [metrics.reporters.csv :as csv])
+            [metrics.reporters.csv :as csv]
+            [environ.core :refer [env]])
   (:import [java.util.concurrent TimeUnit]))
 
 ;; We aren't being smart about how many data points to keep,
 ;; so keeping this on in production would eventually exhaust the heap
 (def instrument? (atom false))
 (def metrics (atom {}))
-(def CR (csv/reporter "/var/log/td-bot" {}))
+(def CR (csv/reporter (env :log-dir) {}))
 (def GR (graphite/reporter {:host "localhost"
                             :rate-unit TimeUnit/SECONDS
                             :duration-unit TimeUnit/MILLISECONDS}))

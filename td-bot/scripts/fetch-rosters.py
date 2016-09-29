@@ -51,7 +51,7 @@ def downloadRosters():
 
 # Output the current roster to a file named rosters.csv
 columnHeaders = ("team_name", "last_name", "first_name")
-with open('rosters.csv', 'w') as outfile:
+with open('2016-rosters.csv', 'w') as outfile:
     writer = csv.writer(outfile, delimiter=',')
     writer.writerow(columnHeaders)
     for player in downloadRosters():

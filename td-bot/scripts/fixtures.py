@@ -40,8 +40,8 @@ teams = { "Patriots" : "NE",
           "Jacksonville" : "JAC",
           "Panthers" : "CAR",
           "Carolina" : "CAR",
-          "Rams" : "STL",
-          "St. Louis" : "STL",
+          "Rams" : "LA",
+          "Los Angeles" : "LA",
           "Eagles" : "PHI",
           "Philadelphia" : "PHI",
           "Seahawks" : "SEA",
@@ -76,7 +76,7 @@ teams = { "Patriots" : "NE",
           "Atlanta" : "ATL",
           "Vikings" : "MIN",
           "Minnesota" : "MIN"}
-          
+
 headers = ["week", "home", "away", "start-time"]
 
 def extract_home(row):
@@ -92,7 +92,7 @@ def extract_start_time(row):
     DATE_COL = 4
     TIME_COL = 5
     # dateutil parser can't handle the time zone, so this takes some hackery
-    # DST starts on November 1 in 2015, November 2 in 2014
+    # DST starts on November 1 in 2015, November 2 in 2014, November 6 (Sun) in 2016
     utc_offset = -4 if re.search('September|October', row[DATE_COL]) else -5 
     date_str = (row[DATE_COL] + (' %s ' % year) + row[TIME_COL]).strip()
     print date_str
