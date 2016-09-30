@@ -32,7 +32,7 @@
                    :all (constantly true)}
   :profiles {:dev {:jvm-opts ["-Dlog4j.configuration=log4j-dev.properties"]
                    :dependencies [[incanter "1.9.0" :exclusions [commons-codec org.clojure/tools.macro]]]
-                   :env {:log-dir "var/log/td-bot"}}}
+                   :env {:td-bot-log-dir "var/log/td-bot"}}}
   :test-paths ["src" "test"]
   :pedantic? :warn
   :bootclasspath true

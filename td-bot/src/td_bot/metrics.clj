@@ -13,7 +13,7 @@
 ;; so keeping this on in production would eventually exhaust the heap
 (def instrument? (atom false))
 (def metrics (atom {}))
-(def CR (csv/reporter (env :log-dir) {}))
+(def CR (csv/reporter (env :td-bot-log-dir) {}))
 (def GR (graphite/reporter {:host "localhost"
                             :rate-unit TimeUnit/SECONDS
                             :duration-unit TimeUnit/MILLISECONDS}))

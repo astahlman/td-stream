@@ -3,7 +3,8 @@
             [clojure.data.json :as json]
             [twitter-streaming-client.core :as client]
             [twitter.oauth :as oauth]
-            [clojure.tools.logging :as log]))
+            [clojure.tools.logging :as log]
+            [environ.core :refer [env]]))
 
 (defn is-retweet? [tweet]
   (.startsWith (clojure.string/lower-case tweet) "rt"))
@@ -73,16 +74,12 @@
                          ret)
                        :else (recur (conj ret tweet))))))))}))
 
-
-
 (defn create-creds []
-  (let [{:keys [consumer-key consumer-secret user-access-token user-access-token-secret]}
-        (json/read-str (slurp "keys.json") :key-fn (comp keyword #(clojure.string/replace % #"_" "-")))]
-    (oauth/make-oauth-creds
-     consumer-key
-     consumer-secret
-     user-access-token
-     user-access-token-secret)))
+  (oauth/make-oauth-creds
+   (env :td-bot-twitter-consumer-key)
+   (env :td-bot-twitter-consumer-secret)
+   (env :td-bot-twitter-user-access-token)
+   (env :td-bot-twitter-user-access-token-secret)))
 
 (defn create-tweet-client
   "Return a twitter client tracking the given keywords"
