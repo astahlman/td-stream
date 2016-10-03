@@ -13,7 +13,7 @@
 ;; so keeping this on in production would eventually exhaust the heap
 (def instrument? (atom false))
 (def metrics (atom {}))
-(def CR (csv/reporter (env :td-bot-log-dir) {}))
+(def CR (delay (csv/reporter (env :td-bot-log-dir) {})))
 (def GR (graphite/reporter {:host "localhost"
                             :rate-unit TimeUnit/SECONDS
                             :duration-unit TimeUnit/MILLISECONDS}))
@@ -43,7 +43,7 @@
 
 (defn reset-metrics! []
   (reset! metrics {})
-  (csv/start CR 5) ;; every 5 seconds
+  (csv/start @CR 5) ;; every 5 seconds
   (graphite/start GR 10)) ;; every 10 seconds
 
 (defn print-metrics []

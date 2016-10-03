@@ -6,7 +6,8 @@
             [clojure.test :refer :all]))
 
 (def ^:const headers ["week" "home" "away" "start-time"])
-(def files-by-year {2015 "data/fixtures/nfl-schedule-2015.tsv"
+(def files-by-year {2016 "data/fixtures/nfl-schedule-2016.tsv"
+                    2015 "data/fixtures/nfl-schedule-2015.tsv"
                     2014 "data/fixtures/nfl-schedule-2014.tsv"})
 
 (defn- iso-str->epoch-ms [s]
@@ -44,7 +45,7 @@
 
 (def all-fixtures
   (flatten
-   (for [year [2014 2015]]
+   (for [year [2014 2015 2016]]
      (map #(assoc % :year year) (load-fixtures year)))))
 
 (with-test
